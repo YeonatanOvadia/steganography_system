@@ -1,11 +1,7 @@
 package yeonatano.steganography_system.ui;
 
-
-
 import com.vaadin.flow.component.button.Button;
-
 import com.vaadin.flow.component.grid.Grid;
-
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
