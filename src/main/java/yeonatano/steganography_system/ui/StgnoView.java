@@ -11,6 +11,8 @@ import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.router.Route;
 
 import yeonatano.steganography_system.services.StgnoService;
+import yeonatano.steganography_system.services.StgnoService.EmbedTaskCallback;
+import yeonatano.steganography_system.services.StgnoService.ExtractTaskCallback;
 
 @Route("/stagno")
 public class StgnoView extends VerticalLayout {
@@ -19,9 +21,10 @@ public class StgnoView extends VerticalLayout {
     private Upload upload;
     private MemoryBuffer imgFile;
     private TextField msgField;
+    private Notification notification = new Notification();
 
-
-    public StgnoView(StgnoService stgnoService) {
+    public StgnoView(StgnoService stgnoService)
+    {
         this.stgnoService = stgnoService;
         imgFile = new MemoryBuffer();
         upload = new Upload(imgFile);
@@ -43,74 +46,104 @@ public class StgnoView extends VerticalLayout {
         ui = UI.getCurrent();
         Button Embed = new Button("Embed & send To DB", e -> embedMsgAndAddImgToDB(imgFile , msgField.getValue()));
         Button Extract = new Button("Extract msg",e -> extractMsg(imgFile));
-        
+
         add(upload, Embed, Extract, msgField); 
 
     }
 
-    private Object extractMsg(MemoryBuffer imgFile) 
+    private void extractMsg(MemoryBuffer imgFile) 
     {
-        new Thread(() -> {
-            String msg = stgnoService.extractMsg(imgFile);
-                //מציג על המסך כאשר המשימה בוצעה 
-            ui.access(() -> {
-                if (msg != null)
-                {
-                    Notification success = Notification.show("f5 done", 5000, Notification.Position.MIDDLE);
-                    success.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-
-                    upload.clearFileList();
-                    this.imgFile = new MemoryBuffer();
-                }
-
-                else
-                {
-                    Notification error = Notification.show("Not supported", 5000, Notification.Position.MIDDLE);
-                    error.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                }
-            });
-
-        }).start();
-
-        return imgFile;
-
-    }
-
-    private int embedMsgAndAddImgToDB(MemoryBuffer imgFile, String msg) {
-        if(imgFile.getFileData() == null || msg == "")
-            Notification.show("Details are missing", 500, Notification.Position.MIDDLE);
+        if(imgFile.getFileData() == null)
+        {
+            notification.close();
+            notification = Notification.show("Details are missing", 5000, Notification.Position.MIDDLE);
+            System.out.println("Details are missing");
+        }
 
         else
         {
-            Notification.show("F5 runing", 5000, Notification.Position.MIDDLE);
+            notification.close();
+            notification = Notification.show("running......", 5000, Notification.Position.MIDDLE);
+            System.out.println("runing extract");
+        
 
-            new Thread(() -> {
-                boolean isSuccess = stgnoService.embedMsg(imgFile, msg);
+            stgnoService.extractMsg(imgFile, new ExtractTaskCallback()
+            {
 
+                @Override
+                public void onComplete(boolean isSuccess, String msg)
+                {
+                    System.out.println("the task is finish");
+                    ui.access(() -> {
+
+                            if (isSuccess)
+                            {
+                                notification.close();
+                                notification = Notification.show("Extract Done " + msg , 5000, Notification.Position.MIDDLE);
+                                notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                                upload.clearFileList();
+                                StgnoView.this.imgFile = new MemoryBuffer();
+                                msgField.setValue("");
+                            }
+
+                            else
+                            {
+                                notification.close();
+                                notification = Notification.show("We have a problem Try again", 5000, Notification.Position.MIDDLE);
+                                notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                            }
+                        });
                     
-                //מציג על המסך כאשר המשימה בוצעה 
-                ui.access(() -> {
-                    if (isSuccess)
-                    {
-                        Notification success = Notification.show("f5 done", 5000, Notification.Position.MIDDLE);
-                        success.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            
+                }
 
-                        upload.clearFileList();
-                        this.imgFile = new MemoryBuffer();
-                        this.msgField.setValue("");
-
-                    }
-                    else
-                    {
-                        Notification error = Notification.show("Not supported", 5000, Notification.Position.MIDDLE);
-                        error.addThemeVariants(NotificationVariant.LUMO_ERROR);
-                    }
-                });
-
-            }).start();
+            });
         }
 
-        return 0;
+    }
 
+    private void embedMsgAndAddImgToDB(MemoryBuffer imgFile, String msg)
+    {
+        if(imgFile.getFileData() == null || msg.equals(""))
+        {
+            notification.close();
+            notification = Notification.show("Details are missing", 5000, Notification.Position.MIDDLE);
+        }
+
+        else
+        {
+            notification.close();
+            notification = Notification.show("running......", 5000, Notification.Position.MIDDLE);
+
+            // קוראים לפעולה ב-Service ומוסרים לה את ה-Callback
+            stgnoService.embedMsg(imgFile, msg, new EmbedTaskCallback()
+            {
+                
+                @Override
+                public void onComplete(boolean isSuccess, MemoryBuffer imgFile)
+                {
+                    // רק כאן משתמשים ב-ui.access כדי לעדכן את המסך
+                    ui.access(() -> {
+
+                        if (isSuccess)
+                        {
+                            notification.close();
+                            notification = Notification.show("embed done" + msg , 5000, Notification.Position.MIDDLE);
+                            notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                            upload.clearFileList();
+                            StgnoView.this.imgFile = new MemoryBuffer();
+                            msgField.setValue("");
+                        }
+
+                        else
+                        {
+                            notification.close();
+                            notification = Notification.show("Not supported", 5000, Notification.Position.MIDDLE);
+                            notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+                        }
+                    });
+                }
+            });
+        }
     }
 }
