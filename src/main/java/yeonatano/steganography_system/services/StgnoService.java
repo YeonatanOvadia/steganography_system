@@ -9,18 +9,24 @@ public class StgnoService
 {
 
     public interface EmbedTaskCallback
-   {public void onComplete(boolean isSuccess, MemoryBuffer imgFile);}
+    {
+        public void onComplete(boolean isSuccess, byte[] resultBytes);
+    }
 
-   public interface ExtractTaskCallback
-   {public void onComplete(boolean isSuccess, String msg);}
+    public interface ExtractTaskCallback
+    {
+        public void onComplete(boolean isSuccess, String msg);
+    }
 
 
     private StgnoRepository stgnoRepository;
+    private F5StegoService f5StegoService;
     private Thread StgnoTask;
 
-    public StgnoService(StgnoRepository stgnoRepository)
+    public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService)
     {
         this.stgnoRepository = stgnoRepository;
+        this.f5StegoService = f5StegoService;
     }
 
     //_________________________________________הטמעה_________________________________________
@@ -29,62 +35,62 @@ public class StgnoService
     {
         StgnoTask =  new Thread(() ->
         {
-            if(checkValid(imgFile))
+            if(checkValid(imgFile)) 
+            {
+                byte[] resultBytes = embed(imgFile , msg);
+                embedTaskCallback.onComplete(true, resultBytes);
+            }
+            else
                 embedTaskCallback.onComplete(false, null);
             
-            else
-            {
-                embed(imgFile);
-                System.out.println("msg " + msg);
-
-                embedTaskCallback.onComplete(true, imgFile);
-            }
         });
-
         StgnoTask.start();
     }
 
-    private void embed(MemoryBuffer imgFile)
+    private byte[] embed(MemoryBuffer imgFile, String msg)
     {
         String mimeType = checkType(imgFile);
 
-        MemoryBuffer embedFile = new MemoryBuffer();
+        byte[] embedFile = null;
 
         switch (mimeType)
         {
             case "image/jpg":
             case "image/jpeg":
                 System.out.println("f5 jpeg");
-                embedFile = embedF5(imgFile);
+                embedFile = embedF5(imgFile , msg);
                 break;
 
             case "image/png":
                 System.out.println("PVD PNG");
-                embedFile = embedPVD(imgFile);
+                embedFile = embedPVD(imgFile , msg);
                 break;
             
             case "audio/wav":
-                embedFile = embedDSSS(imgFile);
+                embedFile = embedDSSS(imgFile , msg);
         }
+        return embedFile;
     }
 
-    private MemoryBuffer embedDSSS(MemoryBuffer imgFile)
+    private byte[] embedDSSS(MemoryBuffer imgFile, String msg)
     {
         System.out.println("embedDSSS");
-        return imgFile;
+        return null;
     }
 
-    private MemoryBuffer embedPVD(MemoryBuffer imgFile)
+    private byte[] embedPVD(MemoryBuffer imgFile, String msg)
     {
         System.out.println("embedPVD");
-        return imgFile;
+        return null;
     }
 
-    private MemoryBuffer embedF5(MemoryBuffer imgFile)
+    private byte[] embedF5(MemoryBuffer imgFile, String msg)
     {
-    
-        System.out.println("embedF5");
-        return imgFile;
+        System.out.println("Sending to F5StegoService with message: " + msg);
+        
+        byte[] resultBytes = f5StegoService.embed(imgFile, msg);     
+
+        return resultBytes;
     }
 
     //______________________________________פענוח______________________________________________
@@ -100,14 +106,15 @@ public class StgnoService
 
             if(checkValid(imgFile))
             {
-                extractTaskCallback.onComplete(false, null);
+                String msg = extract(imgFile);
+                System.out.println(msg);
+                extractTaskCallback.onComplete(true, msg);
             }
 
             else
-            {
-                String msg = extract(imgFile);
-                extractTaskCallback.onComplete(true, msg);
-            }
+                extractTaskCallback.onComplete(false, null);
+            
+            
         });
 
         StgnoTask.start();
@@ -116,7 +123,8 @@ public class StgnoService
 
     }
 
-    private String extract(MemoryBuffer imgFile) {
+    private String extract(MemoryBuffer imgFile)
+    {
         String mimeType = checkType(imgFile);
         String msg = new String();
         switch (mimeType)
@@ -131,13 +139,11 @@ public class StgnoService
                 System.out.println("PVD PNG");
                 msg = extractPVD(imgFile);
                 break;
-            
             case "audio/wav":
                 msg = extractDSSS(imgFile);
         }
 
         return msg;
-        
     }   
    
     private String extractDSSS(MemoryBuffer imgFile)
@@ -154,22 +160,24 @@ public class StgnoService
 
     private String extractF5(MemoryBuffer imgFile)
     {
-        return null;
-
+        System.out.println("Sending to F5StegoService for extraction");
+        String result = f5StegoService.extract(imgFile);
+        return result;
     }
 
 //_________________________________________פונקציות עזר_________________________________________
-    public boolean checkValid(MemoryBuffer imgFile)
+   public boolean checkValid(MemoryBuffer imgFile) {
+    String type = checkType(imgFile);
+    // בדיקה האם הסוג הוא אחד מהפורמטים הנתמכים
+    if (type.equals("image/jpg") || type.equals("image/jpeg"))
     {
-        if (!checkType(imgFile).equals("image/jpg") || !checkType(imgFile).equals("image/jpeg"))
-        {
-            System.out.println("not Valid");
-            return false;
-        }
-
-        System.out.println("Valid");
+        System.out.println("Valid type: " + type);
         return true;
     }
+
+    System.out.println("Not valid: " + type);
+    return false;
+}
 
     public String checkType(MemoryBuffer imgFile)
     {
