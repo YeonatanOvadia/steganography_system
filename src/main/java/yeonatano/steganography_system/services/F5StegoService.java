@@ -11,22 +11,34 @@ import yeonatano.steganography_system.utilities.QDCT.F5JpegWriter;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-// ייבוא מחלקות העזר שלך
-// import yeonatano.steganography_system.utils.Decomposer;
-// import yeonatano.steganography_system.utils.F5Utility;
-// import yeonatano.steganography_system.utils.F5JpegWriter;
 
+/**
+ * מחלקת שירות (Service) המיישמת את אלגוריתם הסטגנוגרפיה F5 עבור קבצי JPEG.
+ * האלגוריתם מבצע הטמעה וחילוץ של מידע סודי אל תוך מקדמי ה-DCT של התמונה
+ * תוך שימוש בקידוד מטריצה (Matrix Encoding) כדי למזער את הפגיעה באיכות התמונה.
+ */
 @Service
-public class F5StegoService {
+public class F5StegoService 
+{
 
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    // private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-    public byte[] embed(MemoryBuffer imgFile, String secretMsg) {
+    /**
+     * פונקציה להטמעת הודעה סודית בתוך תמונת JPEG.
+     * התהליך כולל קריאת מקדמי ה-DCT, המרת ההודעה לביטים (כולל הוספת Header של 32 ביט לאורך המסר),
+     * והטמעתם בעזרת Matrix Encoding על מקדמים שאינם אפס.
+     *
+     * @param imgFile קובץ התמונה המקורי שהועלה על ידי המשתמש (מתוך ה-Web Buffer).
+     * @param secretMsg ההודעה הסודית שהמשתמש רוצה להסתיר בתמונה.
+     * @return מערך בתים (byte[]) המייצג את התמונה החדשה (Stego-Image) לאחר ההטמעה, או null במקרה של שגיאה או חוסר מקום.
+     */
+    public byte[] embed(MemoryBuffer imgFile, String secretMsg) 
+    {
         try {
             // התאמה ל-Stream: מקבלים את המידע ישירות מה-Buffer
             InputStream inputStream = imgFile.getInputStream();
 
-            // --- תחילת הלוגיקה שלך (ללא שינוי) ---
+            // --- תחילת הלוגיקה שלך ---
             byte[] messageBytes = secretMsg.getBytes(StandardCharsets.UTF_8);
 
             // 2. פירוק התמונה
@@ -187,6 +199,13 @@ public class F5StegoService {
         }
     }
 
+    /**
+     * פונקציית עזר להמרת זרם נתונים (OutputStream) למערך בתים סופי.
+     * * @param os זרם הנתונים המכיל את התמונה לאחר ההטמעה.
+     * @param fileName שם קובץ המקור (לצורכי הדפסה ודיבאג).
+     * @param mimeType סוג הקובץ (למשל image/jpeg).
+     * @return מערך הבתים (byte[]) המייצג את התמונה, או null אם הזרם ריק.
+     */
     private byte[] convertToBuffer(ByteArrayOutputStream os, String fileName, String mimeType) {
     // כאן קורה ה"קסם": הפקודה toByteArray יוצרת מערך חדש 
     // בדיוק באורך של כל הביטים שנשפכו לתוך ה-OutputStream.
@@ -202,7 +221,16 @@ public class F5StegoService {
     System.out.println("File: " + fileName + " converted to byte array. Size: " + result.length + " bytes.");
     
     return result; 
-}
+    }
+
+    /**
+     * פונקציה לחילוץ הודעה סודית מתוך תמונת JPEG שעברה סטגנוגרפיה (Stego-Image).
+     * הפונקציה קוראת את מקדמי ה-DCT של התמונה, מחלצת תחילה את אורך המסר (32 ביטים ראשונים),
+     * ולאחר מכן מחלצת את תוכן ההודעה בעזרת פעולות XOR על הביטים הפחות משמעותיים (LSB).
+     *
+     * @param stegoFile קובץ התמונה המכיל את המידע הסודי (מתוך ה-Web Buffer).
+     * @return מחרוזת המכילה את ההודעה הסודית שחולצה, או הודעת שגיאה במקרה של כשל.
+     */
     public String extract(MemoryBuffer stegoFile) {
     try {
         // 1. טעינת התמונה המכילה את המסר (התאמה ל-InputStream של ה-Web)

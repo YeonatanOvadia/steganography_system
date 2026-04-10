@@ -21,12 +21,16 @@ public class StgnoService
 
     private StgnoRepository stgnoRepository;
     private F5StegoService f5StegoService;
+    private DSSSStegnoService dsssStegnoService;
+
     private Thread StgnoTask;
 
-    public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService)
+    public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService)
     {
         this.stgnoRepository = stgnoRepository;
         this.f5StegoService = f5StegoService;
+        this.dsssStegnoService = dsssStegnoService;
+
     }
 
     //_________________________________________הטמעה_________________________________________
@@ -72,10 +76,13 @@ public class StgnoService
         return embedFile;
     }
 
-    private byte[] embedDSSS(MemoryBuffer imgFile, String msg)
+    private byte[] embedDSSS(MemoryBuffer File, String msg)
     {
         System.out.println("embedDSSS");
-        return null;
+
+        byte[] result = dsssStegnoService.embed(File, msg);
+
+        return result;
     }
 
     private byte[] embedPVD(MemoryBuffer imgFile, String msg)
@@ -148,7 +155,10 @@ public class StgnoService
    
     private String extractDSSS(MemoryBuffer imgFile)
     {
-        return null;
+
+        String result = dsssStegnoService.extract(imgFile);
+        
+        return result;
 
     }
 
@@ -169,7 +179,7 @@ public class StgnoService
    public boolean checkValid(MemoryBuffer imgFile) {
     String type = checkType(imgFile);
     // בדיקה האם הסוג הוא אחד מהפורמטים הנתמכים
-    if (type.equals("image/jpg") || type.equals("image/jpeg"))
+    if (type.equals("image/jpg") || type.equals("image/jpeg") || type.equals("audio/wav"))
     {
         System.out.println("Valid type: " + type);
         return true;
