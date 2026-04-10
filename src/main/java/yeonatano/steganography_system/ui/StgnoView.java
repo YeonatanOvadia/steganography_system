@@ -79,33 +79,37 @@ public class StgnoView extends VerticalLayout {
                 {
                     // רק כאן משתמשים ב-ui.access כדי לעדכן את המסך
                     ui.access(() -> {
-
-                        if (isSuccess)
-                        {
+                        if (isSuccess) {
                             notification.close();
 
-                            // 1. הופכים את מערך הבייטים לקובץ שניתן להוריד
-                            StreamResource res = new StreamResource("stego_result.jpg", 
-                                () -> new java.io.ByteArrayInputStream(resultBytes)); // <-- שינוי הצינור
-                            
-                            // 2. מעדכנים את הקישור הקיים (במקום ליצור חדש כל פעם)
-                            autoDownloadAnchor.setHref(res);
-                            autoDownloadAnchor.setText("לחץ כאן להורדת התמונה המוטמעת");
-                            autoDownloadAnchor.getElement().getStyle().set("display", "block"); // חושף את הקישור
+                            // 1. חילוץ שם הקובץ המקורי כדי לשמור על הסיומת הנכונה (.wav או .jpg)
+                            String originalFileName = imgFile.getFileName();
+                            String resultFileName = "stego_" + originalFileName;
 
-                            // 3. מנקים את השדות לקראת הפעולה הבאה
+                            // 2. יצירת המשאב עם השם הדינמי והגדרת סוג תוכן בינארי
+                            StreamResource res = new StreamResource(resultFileName, 
+                                () -> new java.io.ByteArrayInputStream(resultBytes));
+                            
+                            // הכרחי: מונע מהדפדפן לנסות "לנחש" את סוג הקובץ וחוסם שגיאות רשת
+                            res.setContentType("application/octet-stream");
+
+                            // 3. עדכון הקישור והגדרת תכונת הורדה (download attribute)
+                            autoDownloadAnchor.setHref(res);
+                            autoDownloadAnchor.getElement().setAttribute("download", resultFileName);
+                            autoDownloadAnchor.getElement().getStyle().set("display", "block");
+
+                            // 4. ביצוע הורדה אוטומטית באמצעות JavaScript עם השהיה קלה לסנכרון ה-DOM
+                            ui.getPage().executeJs("setTimeout(function() { $0.click(); }, 300);", autoDownloadAnchor.getElement());
+
+                            // 5. ניקוי שדות הממשק
                             upload.clearFileList();
                             msgField.setValue("");
-                            // StgnoView.this.imgFile = new MemoryBuffer();
 
-                            Notification.show("ההטמעה הסתיימה בהצלחה!", 5000, Notification.Position.MIDDLE)
+                            Notification.show("ההטמעה הסתיימה בהצלחה! ההורדה מתחילה...", 5000, Notification.Position.MIDDLE)
                                         .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                        }
-
-                        else
-                        {
+                        } else {
                             notification.close();
-                            notification = Notification.show("Not supported", 5000, Notification.Position.MIDDLE);
+                            notification = Notification.show("Not supported or processing error", 5000, Notification.Position.MIDDLE);
                             notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
                         }
                     });
