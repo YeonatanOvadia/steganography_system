@@ -21,7 +21,8 @@ public class F5JpegWriter {
     private static final int[] DC_LUM_BITS = {0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0};
     private static final int[] DC_LUM_VAL = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     private static final int[] AC_LUM_BITS = {0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125};
-    private static final int[] AC_LUM_VAL = {
+    private static final int[] AC_LUM_VAL = 
+    {
         0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07,
         0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0,
         0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0a, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x25, 0x26, 0x27, 0x28,
@@ -39,7 +40,8 @@ public class F5JpegWriter {
     private static final int[] DC_CHR_BITS = {0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0};
     private static final int[] DC_CHR_VAL = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     private static final int[] AC_CHR_BITS = {0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119};
-    private static final int[] AC_CHR_VAL = {
+    private static final int[] AC_CHR_VAL = 
+    {
         0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71,
         0x13, 0x22, 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0,
         0x15, 0x62, 0x72, 0xd1, 0x0a, 0x16, 0x24, 0x34, 0xe1, 0x25, 0xf1, 0x17, 0x18, 0x19, 0x1a, 0x26,
@@ -62,7 +64,8 @@ public class F5JpegWriter {
     /**
      * פונקציית הכתיבה הראשית. פותחת קובץ וכותבת את כל המרקרים והנתונים.
      */
-    public void writeRawDCT(ByteArrayOutputStream outputStream) throws IOException {
+    public void writeRawDCT(ByteArrayOutputStream outputStream) throws IOException 
+    {
         try (BufferedOutputStream bos = new BufferedOutputStream(new BufferedOutputStream(outputStream))) {
             writeHeaders(bos);
             encodeHuffmanAndWrite(bos);

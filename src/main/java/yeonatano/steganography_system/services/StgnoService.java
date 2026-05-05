@@ -22,14 +22,18 @@ public class StgnoService
     private StgnoRepository stgnoRepository;
     private F5StegoService f5StegoService;
     private DSSSStegnoService dsssStegnoService;
+    private PVDStegoService pvdStegoService;
+
+
 
     private Thread StgnoTask;
 
-    public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService)
+    public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService, PVDStegoService pvdStegoService)
     {
         this.stgnoRepository = stgnoRepository;
         this.f5StegoService = f5StegoService;
         this.dsssStegnoService = dsssStegnoService;
+        this.pvdStegoService = pvdStegoService;
 
     }
 
@@ -41,7 +45,15 @@ public class StgnoService
         {
             if(checkValid(imgFile)) 
             {
-                byte[] resultBytes = embed(imgFile , msg);
+                byte[] resultBytes = null;
+                try 
+                {
+                    resultBytes = embed(imgFile , msg);
+                } 
+                catch (Exception e) 
+                {
+                    e.printStackTrace();
+                }
                 embedTaskCallback.onComplete(true, resultBytes);
             }
             else
@@ -51,7 +63,7 @@ public class StgnoService
         StgnoTask.start();
     }
 
-    private byte[] embed(MemoryBuffer imgFile, String msg)
+    private byte[] embed(MemoryBuffer imgFile, String msg) throws Exception
     {
         String mimeType = checkType(imgFile);
 
@@ -62,16 +74,16 @@ public class StgnoService
             case "image/jpg":
             case "image/jpeg":
                 System.out.println("f5 jpeg");
-                embedFile = embedF5(imgFile , msg);
+                embedFile = embedF5(imgFile, msg);
                 break;
 
             case "image/png":
                 System.out.println("PVD PNG");
-                embedFile = embedPVD(imgFile , msg);
+                embedFile = embedPVD(imgFile, msg);
                 break;
             
             case "audio/wav":
-                embedFile = embedDSSS(imgFile , msg);
+                embedFile = embedDSSS(imgFile, msg);
         }
         return embedFile;
     }
@@ -85,10 +97,13 @@ public class StgnoService
         return result;
     }
 
-    private byte[] embedPVD(MemoryBuffer imgFile, String msg)
+    private byte[] embedPVD(MemoryBuffer imgFile, String msg) throws Exception
     {
         System.out.println("embedPVD");
-        return null;
+
+        byte[] result = pvdStegoService.embed(imgFile, msg);
+
+        return result;
     }
 
     private byte[] embedF5(MemoryBuffer imgFile, String msg)
@@ -113,7 +128,15 @@ public class StgnoService
 
             if(checkValid(imgFile))
             {
-                String msg = extract(imgFile);
+                String msg = null;
+                try 
+                {
+                    msg = extract(imgFile);
+                } 
+                catch (Exception e) 
+                {
+                    e.printStackTrace();
+                }
                 System.out.println(msg);
                 extractTaskCallback.onComplete(true, msg);
             }
@@ -130,7 +153,7 @@ public class StgnoService
 
     }
 
-    private String extract(MemoryBuffer imgFile)
+    private String extract(MemoryBuffer imgFile) throws Exception
     {
         String mimeType = checkType(imgFile);
         String msg = new String();
@@ -162,11 +185,11 @@ public class StgnoService
 
     }
 
-    private String extractPVD(MemoryBuffer imgFile)
+    private String extractPVD(MemoryBuffer imgFile) throws Exception
     {
-        return null;
-
-    }
+        System.out.println("Sending to F5StegoService for extraction");
+        String result = pvdStegoService.extract(imgFile);
+        return result;    }
 
     private String extractF5(MemoryBuffer imgFile)
     {
@@ -179,7 +202,7 @@ public class StgnoService
    public boolean checkValid(MemoryBuffer imgFile) {
     String type = checkType(imgFile);
     // בדיקה האם הסוג הוא אחד מהפורמטים הנתמכים
-    if (type.equals("image/jpg") || type.equals("image/jpeg") || type.equals("audio/wav"))
+    if (type.equals("image/jpg") || type.equals("image/jpeg") || type.equals("audio/wav") ||type.equals("image/png"))
     {
         System.out.println("Valid type: " + type);
         return true;
