@@ -12,11 +12,13 @@ import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.StreamResource;
 
+import jakarta.annotation.security.PermitAll;
 import yeonatano.steganography_system.services.StgnoService;
 import yeonatano.steganography_system.services.StgnoService.EmbedTaskCallback;
 import yeonatano.steganography_system.services.StgnoService.ExtractTaskCallback;
 
 @Route("/stagno")
+@PermitAll
 public class StgnoView extends VerticalLayout {
     private StgnoService stgnoService;
     private UI ui;
@@ -28,16 +30,16 @@ public class StgnoView extends VerticalLayout {
 
     public StgnoView(StgnoService stgnoService)
     {
-        this.stgnoService = stgnoService;
+     this.stgnoService = stgnoService;
         imgFile = new MemoryBuffer();
         upload = new Upload(imgFile);
 
         autoDownloadAnchor.getElement().getStyle().set("display", "none");
         autoDownloadAnchor.getElement().setAttribute("download", true);
 
-
         int maxFileSizeInBytes = 15 * 1024 * 1024; // 15MB
         upload.setMaxFileSize(maxFileSizeInBytes);
+        upload.setWidthFull(); // פריסת אזור ההעלאה לכל הרוחב
 
         upload.addFileRejectedListener(event -> {
             String errorMessage = event.getErrorMessage();
@@ -46,15 +48,41 @@ public class StgnoView extends VerticalLayout {
         });
 
         msgField = new TextField();
-        msgField.setLabel("msg to embed");
+        msgField.setLabel("Message to embed");
+        msgField.setPlaceholder("Enter your secret message here...");
         msgField.setClearButtonVisible(true);
+        msgField.setWidthFull(); // פריסת שדה הטקסט לכל הרוחב
 
         ui = UI.getCurrent();
+
+        // עיצוב הכפתורים
         Button Embed = new Button("Embed & send To DB", e -> embedMsgAndAddImgToDB(imgFile , msgField.getValue()));
-        Button Extract = new Button("Extract msg",e -> extractMsg(imgFile));
+        Embed.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY); // כפתור ראשי מודגש
+        
+        Button Extract = new Button("Extract msg", e -> extractMsg(imgFile));
+        Extract.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_CONTRAST); // כפתור כהה ליצירת ניגודיות
 
-        add(upload, Embed, Extract, msgField, autoDownloadAnchor); 
+        // סידור הכפתורים בשורה אחת
+        com.vaadin.flow.component.orderedlayout.HorizontalLayout buttonsLayout = new com.vaadin.flow.component.orderedlayout.HorizontalLayout(Embed, Extract);
+        buttonsLayout.setWidthFull();
+        buttonsLayout.setJustifyContentMode(JustifyContentMode.CENTER); // מרכוז הכפתורים
 
+        // יצירת "כרטיס" (Card) מעוצב שיעטוף את כל הרכיבים
+        com.vaadin.flow.component.orderedlayout.VerticalLayout cardLayout = new com.vaadin.flow.component.orderedlayout.VerticalLayout(upload, msgField, buttonsLayout, autoDownloadAnchor);
+        cardLayout.setAlignItems(Alignment.CENTER);
+        cardLayout.setMaxWidth("500px");
+        cardLayout.getStyle().set("box-shadow", "var(--lumo-box-shadow-m)"); // צללית של Vaadin
+        cardLayout.getStyle().set("border-radius", "var(--lumo-border-radius-l)"); // פינות מעוגלות
+        cardLayout.getStyle().set("padding", "var(--lumo-space-xl)");
+        cardLayout.getStyle().set("background-color", "var(--lumo-base-color)");
+
+        // הגדרות עיצוב למסך הראשי עצמו
+        setSizeFull();
+        setAlignItems(Alignment.CENTER); // יישור הכרטיס לאמצע המסך אופקית
+        setJustifyContentMode(JustifyContentMode.CENTER); // יישור הכרטיס לאמצע המסך אנכית
+
+        // הוספת הכרטיס למסך
+        add(cardLayout);
     }
 
         private void embedMsgAndAddImgToDB(MemoryBuffer imgFile, String msg)
@@ -71,7 +99,7 @@ public class StgnoView extends VerticalLayout {
             notification = Notification.show("running......", 5000, Notification.Position.MIDDLE);
 
             // קוראים לפעולה ב-Service ומוסרים לה את ה-Callback
-            stgnoService.embedMsg(imgFile, msg, new EmbedTaskCallback()
+            stgnoService.embedMsg(imgFile, msg, getCurrentUsername(), new EmbedTaskCallback()
             {
                 
                 @Override
@@ -167,5 +195,10 @@ public class StgnoView extends VerticalLayout {
             });
         }
 
+    }
+
+    private String getCurrentUsername() 
+    {
+        return org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }

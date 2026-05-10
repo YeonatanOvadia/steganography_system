@@ -2,6 +2,8 @@ package yeonatano.steganography_system.services;
 
 import org.springframework.stereotype.Service;
 import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
+
+import yeonatano.steganography_system.datamodels.Files;
 import yeonatano.steganography_system.repositories.StgnoRepository;
 
 @Service
@@ -34,14 +36,20 @@ public class StgnoService
         this.f5StegoService = f5StegoService;
         this.dsssStegnoService = dsssStegnoService;
         this.pvdStegoService = pvdStegoService;
+    }
 
+    public void saveToHistory(String userId, String action, String type, byte[] data) 
+    {
+        Files stegoEntry = new Files(userId, action, type, data);
+        stgnoRepository.save(stegoEntry);
     }
 
     //_________________________________________הטמעה_________________________________________
 
-    public void embedMsg(MemoryBuffer imgFile, String msg, EmbedTaskCallback embedTaskCallback)
+    // הוספנו את הפרמטר String username
+    public void embedMsg(MemoryBuffer imgFile, String msg, String username, EmbedTaskCallback embedTaskCallback)
     {
-        StgnoTask =  new Thread(() ->
+        StgnoTask = new Thread(() ->
         {
             if(checkValid(imgFile)) 
             {
@@ -49,6 +57,12 @@ public class StgnoService
                 try 
                 {
                     resultBytes = embed(imgFile , msg);
+                    
+                    // Service שומר לדאטה בייס!
+                    if (resultBytes != null) {
+                        saveToHistory(username, "Embed", checkType(imgFile), resultBytes);
+                    }
+                    
                 } 
                 catch (Exception e) 
                 {
