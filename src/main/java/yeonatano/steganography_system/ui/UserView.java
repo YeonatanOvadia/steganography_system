@@ -5,17 +5,17 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.router.BeforeEnterEvent;
-import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
 
+import jakarta.annotation.security.PermitAll;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.UserService;
 
 
 
 @Route("/users")
-public class UserView extends VerticalLayout implements BeforeEnterObserver
+@PermitAll
+public class UserView extends VerticalLayout  
 {
    private UserService userService;
    private TextField txfUN, txfPW;
@@ -58,14 +58,5 @@ public UserView(UserService userService)
          txfPW.clear();
          usersGrid.setItems(userService.getAllUsers());
       }
-
-
    }
-
-   @Override
-   public void beforeEnter(BeforeEnterEvent event)
-   {
-
-   }
-   }   
-
+}  

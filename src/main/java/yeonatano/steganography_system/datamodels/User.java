@@ -39,6 +39,11 @@ public class User
     public String toString() {
         return "User [username=" + username + ", password=" + password + "]";
     }
+
+    public void setStatus(String string) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setStatus'");
+    }
     
     
 }
