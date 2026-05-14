@@ -32,13 +32,12 @@ public class F5StegoService
      * @param secretMsg ההודעה הסודית שהמשתמש רוצה להסתיר בתמונה.
      * @return מערך בתים (byte[]) המייצג את התמונה החדשה (Stego-Image) לאחר ההטמעה, או null במקרה של שגיאה או חוסר מקום.
      */
-    public byte[] embed(MemoryBuffer imgFile, String secretMsg) 
+    public byte[] embed(byte[] fileBytes, String secretMsg) 
     {
         try {
             // התאמה ל-Stream: מקבלים את המידע ישירות מה-Buffer
-            InputStream inputStream = imgFile.getInputStream();
+            InputStream inputStream = new ByteArrayInputStream(fileBytes);
 
-            // --- תחילת הלוגיקה שלך ---
             byte[] messageBytes = secretMsg.getBytes(StandardCharsets.UTF_8);
 
             // 2. פירוק התמונה
@@ -191,36 +190,12 @@ public class F5StegoService
                 // וודא ש-F5JpegWriter תומך בכתיבה ל-Stream
                 directWriter.writeRawDCT(outputStream); 
                 
-                return convertToBuffer(outputStream, imgFile.getFileName(), imgFile.getFileData().getMimeType());
+                return outputStream.toByteArray();            
             }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
-    }
-
-    /**
-     * פונקציית עזר להמרת זרם נתונים (OutputStream) למערך בתים סופי.
-     * * @param os זרם הנתונים המכיל את התמונה לאחר ההטמעה.
-     * @param fileName שם קובץ המקור (לצורכי הדפסה ודיבאג).
-     * @param mimeType סוג הקובץ (למשל image/jpeg).
-     * @return מערך הבתים (byte[]) המייצג את התמונה, או null אם הזרם ריק.
-     */
-    private byte[] convertToBuffer(ByteArrayOutputStream os, String fileName, String mimeType) {
-    // כאן קורה ה"קסם": הפקודה toByteArray יוצרת מערך חדש 
-    // בדיוק באורך של כל הביטים שנשפכו לתוך ה-OutputStream.
-    // שום ביט לא הולך לאיבוד כי המערך נוצר רק אחרי שכל הכתיבה הסתיימה.
-    
-    if (os == null) {
-        return null;
-    }
-    
-    byte[] result = os.toByteArray();
-    
-    // הדפסה לדיבאג כדי שתוכל לראות בטרמינל שהמערך אכן נוצר בגודל הנכון
-    System.out.println("File: " + fileName + " converted to byte array. Size: " + result.length + " bytes.");
-    
-    return result; 
     }
 
     /**
@@ -231,11 +206,10 @@ public class F5StegoService
      * @param stegoFile קובץ התמונה המכיל את המידע הסודי (מתוך ה-Web Buffer).
      * @return מחרוזת המכילה את ההודעה הסודית שחולצה, או הודעת שגיאה במקרה של כשל.
      */
-    public String extract(MemoryBuffer stegoFile) {
+    public String extract(byte[] fileBytes) {
     try {
         // 1. טעינת התמונה המכילה את המסר (התאמה ל-InputStream של ה-Web)
-        InputStream inputStream = stegoFile.getInputStream();
-        
+        InputStream inputStream = new ByteArrayInputStream(fileBytes);        
         // 1. פירוק התמונה כדי לקבל את המקדמים (חייבים לעשות את זה ראשון!)
         System.out.println("Analyzing stego image...");
         

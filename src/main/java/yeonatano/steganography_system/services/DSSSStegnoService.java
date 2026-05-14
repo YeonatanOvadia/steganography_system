@@ -1,11 +1,11 @@
 package yeonatano.steganography_system.services;
 
 import org.springframework.stereotype.Service;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 
 import yeonatano.steganography_system.utilities.DsssUtils; 
 
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
@@ -24,13 +24,11 @@ public class DSSSStegnoService
     // סיסמה קבועה המשמשת ליצירת רצף ה-PN עבור כל ההטמעות והחילוצים
     private static final String FIXED_PASSWORD = "a1a2a3";
 
-    public byte[] embed(MemoryBuffer audioFile, String messageStr) 
+    public byte[] embed(byte[] fileBytes, String messageStr) 
     {
         try {
             // התאמה ל-Stream: מקבלים את המידע ישירות מה-Buffer
-            InputStream inputStream = audioFile.getInputStream();
-
-            // --- תחילת הלוגיקה שלך ---
+            InputStream inputStream = new ByteArrayInputStream(fileBytes);
 
             // ---------------------------------------------------------
             // שלב 1: קלט ובדיקות מקדמיות
@@ -39,6 +37,7 @@ public class DSSSStegnoService
             // (הערה: ניתן לבדוק גם ברמת ה-Upload של Vaadin)
             
             // המרת המחרוזת לבייטים לפי תקן UTF-8 (תומך גם בעברית)
+            
             byte[] messageBytes = messageStr.getBytes(StandardCharsets.UTF_8);
 
             // ---------------------------------------------------------
@@ -137,7 +136,7 @@ public class DSSSStegnoService
                 ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                 DsssUtils.saveWavFileToStream(outputStream, audioData);
                 
-                return convertToBuffer(outputStream, audioFile.getFileName(), audioFile.getFileData().getMimeType());
+                return outputStream.toByteArray();
             }
             
             return null;
@@ -147,30 +146,16 @@ public class DSSSStegnoService
         }
     }
 
-    private byte[] convertToBuffer(ByteArrayOutputStream os, String fileName, String mimeType) {
-        // כאן קורה ה"קסם": הפקודה toByteArray יוצרת מערך חדש 
-        // בדיוק באורך של כל הביטים שנשפכו לתוך ה-OutputStream.
-        // שום ביט לא הולך לאיבוד כי המערך נוצר רק אחרי שכל הכתיבה הסתיימה.
-        
-        if (os == null) {
-            return null;
-        }
-        
-        byte[] result = os.toByteArray();
-        
-        // הדפסה לדיבאג כדי שתוכל לראות בטרמינל שהמערך אכן נוצר בגודל הנכון
-        System.out.println("File: " + fileName + " converted to byte array. Size: " + result.length + " bytes.");
-        
-        return result; 
-    }
 
-    public String extract(MemoryBuffer stegoFile) {
+
+    public String extract(byte[] fileBytes) {
         try {
             // ---------------------------------------------------------
             // שלב 1: טעינת נתונים ומפתחות
             // ---------------------------------------------------------
             System.out.println("Analyzing stego audio...");
-            InputStream inputStream = stegoFile.getInputStream();
+            InputStream inputStream = new ByteArrayInputStream(fileBytes);
+
             DsssUtils.AudioData audioData = DsssUtils.readWavSamplesFromStream(inputStream);
             short[] samples = audioData.samples;
 
@@ -208,12 +193,6 @@ public class DSSSStegnoService
             }
 
             System.out.println("Detected message length: " + messageLength + " bytes");
-
-            // בדיקת סבירות (Sanity Check) כדי למנוע קריסה במקרה של סיסמה שגויה
-            if (messageLength < 1 || messageLength > 65535) 
-            {
-                return "Error: Invalid length. Wrong password or corrupted file.";
-            }
 
             // ---------------------------------------------------------
             // שלב 3: חילוץ המסר עצמו

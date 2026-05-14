@@ -1,12 +1,12 @@
 package yeonatano.steganography_system.services;
 
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import org.springframework.stereotype.Service;
 import yeonatano.steganography_system.utilities.PvdUtils;
 
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.BitSet;
@@ -25,19 +25,13 @@ public class PVDStegoService
      * @param secretMessage המסר הסודי שאנו רוצים להחביא
      * @return מערך בייטים (byte[]) של התמונה המוצפנת (תואם לאלגוריתמים האחרים במערכת)
      */
-    public byte[] embed(MemoryBuffer buffer, String secretMessage) throws Exception 
+    public byte[] embed(byte[] fileBytes, String secretMessage) throws Exception 
     {
-        
         System.out.println("=== PVD Steganography - Embedding ===");
 
-        // חילוץ זרם הנתונים (Stream) מהבאפר והמרתו לאובייקט תמונה
-        InputStream inputStream = buffer.getInputStream();
+        // 3. עטיפת מערך הבייטים ב-Stream במקום חילוץ מהבאפר
+        InputStream inputStream = new ByteArrayInputStream(fileBytes);
         BufferedImage originalImage = ImageIO.read(inputStream);
-        
-        if (originalImage == null) 
-        {
-            throw new IllegalArgumentException("The uploaded file is not a valid image.");
-        }
 
         // קריטי: מונע באגים בתמונות עם פלטת צבעים קבועה (Indexed Colors) שמעגלות פיקסלים ומהרסות את האלגוריתם.
         BufferedImage image = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
@@ -222,13 +216,11 @@ public class PVDStegoService
      * @param buffer האובייקט שמכיל את התמונה הנגועה (Stego-Image) שהמשתמש העלה
      * @return המחרוזת (המסר הסודי) שחולצה מתוך התמונה
      */
-    public String extract(MemoryBuffer buffer) throws Exception 
-    {
-        
+    public String extract(byte[] fileBytes) throws Exception {
         System.out.println("=== PVD Steganography - Extraction ===");
         
-        // טעינת התמונה המוצפנת מתוך ה-MemoryBuffer
-        InputStream inputStream = buffer.getInputStream();
+        // 3. עטיפת מערך הבייטים
+        InputStream inputStream = new ByteArrayInputStream(fileBytes);
         BufferedImage image = ImageIO.read(inputStream);
         
         if (image == null) 
