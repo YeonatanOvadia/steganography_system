@@ -15,7 +15,7 @@ public class DsssUtils
      * קבוע: מספר הדגימות שעליהן מפוזר כל ביט בודד.
      * ככל שהמספר גדול יותר - ההטמעה עמידה יותר לרעש, אך קיבולת הקובץ קטנה.
      */
-    public static final int SAMPLES_PER_BIT = 32;
+    public static final int SAMPLES_PER_BIT = 100;
 
     /**
      * מחלקת מעטפת (Wrapper) לאחסון דגימות האודיו יחד עם הפורמט המקורי שלהן.

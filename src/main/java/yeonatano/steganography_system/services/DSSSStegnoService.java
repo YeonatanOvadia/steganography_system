@@ -1,7 +1,6 @@
 package yeonatano.steganography_system.services;
 
 import org.springframework.stereotype.Service;
-
 import yeonatano.steganography_system.utilities.DsssUtils; 
 
 import java.io.InputStream;
@@ -11,16 +10,16 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * מחלקת שירות לאלגוריתם DSSS.
- * מבצעת הנמכה של האודיו, חישוב עוצמת הטמעה (Alpha) באופן דינמי,
+ * מבצעת הנמכה של האודיו, חישוב עוצמת הטמעה (Alpha) באופן דינמי אדפטיבי,
  * ופיזור (Spread) של ביטי המסר על פני דגימות האודיו יחד עם רצף ה-PN.
  * כוללת גם חילוץ עיוור (Blind Extraction) - אינה יודעת את עוצמת האלפא או את האודיו המקורי,
  * ומסתמכת אך ורק על חישוב קורלציה (מכפלה פנימית) בעזרת סיסמת ה-PN.
+ * * עודכן: משלב אלפא אדפטיבית בהטמעה, וטכניקת Zero-Mean Normalization בחילוץ
+ * כדי להתגבר על רעשי רקע קשים של תופים ובאסים במוזיקה קצבית.
  */
 @Service
 public class DSSSStegnoService 
 {
-    // private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    
     // סיסמה קבועה המשמשת ליצירת רצף ה-PN עבור כל ההטמעות והחילוצים
     private static final String FIXED_PASSWORD = "a1a2a3";
 
@@ -37,7 +36,6 @@ public class DSSSStegnoService
             // (הערה: ניתן לבדוק גם ברמת ה-Upload של Vaadin)
             
             // המרת המחרוזת לבייטים לפי תקן UTF-8 (תומך גם בעברית)
-            
             byte[] messageBytes = messageStr.getBytes(StandardCharsets.UTF_8);
 
             // ---------------------------------------------------------
@@ -48,23 +46,13 @@ public class DSSSStegnoService
             short[] samples = audioData.samples;
 
             // ---------------------------------------------------------
-            // שלב 3: הנמכה (Attenuation) וחישוב אלפא (Alpha)
+            // שלב 3: הנמכה (Attenuation)
             // ---------------------------------------------------------
-            long sum = 0;
             for (int i = 0; i < samples.length; i++) 
             {
                 // הנמכת כל הקובץ ב-10% כדי להשאיר 'מרווח נשימה' להטמעה ללא קליפינג
                 samples[i] = (short) (samples[i] * 0.90);
-                sum += Math.abs(samples[i]);
             }
-            
-            // קביעת עוצמת ההטמעה (25% מהעוצמה הממוצעת של הקובץ)
-            double avgAmplitude = sum / (double) samples.length;
-            double alpha = avgAmplitude * 0.25;
-            
-            // הגבלות קצוות: מונע עוצמה חלשה מדי (שתימחק) או חזקה מדי (שתרעיש)
-            if (alpha < 50) alpha = 50;
-            if (alpha > 1000) alpha = 1000;
 
             // ---------------------------------------------------------
             // שלב 4: הכנת "רכבת הביטים" להטמעה
@@ -84,7 +72,7 @@ public class DSSSStegnoService
             System.out.println("Total bits to embed: " + bitsToEmbed.length);
 
             // ---------------------------------------------------------
-            // שלב 5: תהליך ההטמעה (Embedding Loop)
+            // שלב 5: תהליך ההטמעה (Embedding Loop) - עם אלפא אדפטיבית
             // ---------------------------------------------------------
             
             // יצירת מפתח הפריסה על כל אורך הקובץ
@@ -95,6 +83,7 @@ public class DSSSStegnoService
             
             int sampleIndex = skipIndex; // המיקום באודיו
             int msgIndex;
+            
             // המיקום במערך הביטים להטמעה
             for (msgIndex = 0; msgIndex < bitsToEmbed.length; msgIndex++)
             {
@@ -105,6 +94,21 @@ public class DSSSStegnoService
                     return null;
                 }
 
+                // --- חישוב אלפא מקומית (Local Alpha) ---
+                // מונע אובדן נתונים במוזיקה קצבית (כמו תופים) ע"י התאמת עוצמת ההטמעה לעוצמת הבלוק הספציפי
+                long localSum = 0;
+                for (int i = 0; i < DsssUtils.SAMPLES_PER_BIT; i++) {
+                    localSum += Math.abs(samples[sampleIndex + i]);
+                }
+                double localAvg = localSum / (double) DsssUtils.SAMPLES_PER_BIT;
+                
+                // קביעת עוצמת ההטמעה (40% מהעוצמה הממוצעת של הבלוק)
+                double localAlpha = localAvg * 0.21; 
+                
+                // הגבלות קצוות: מונע עוצמה חלשה מדי (שתימחק) או חזקה מדי (שתרעיש)
+                if (localAlpha < 150) localAlpha = 150;
+                if (localAlpha > 3500) localAlpha = 3500;
+
                 // המרת הביט מ-(0) לפורמט ביפולרי (1-) לטובת האלגוריתם המתמטי
                 int bitToEmbed = bitsToEmbed[msgIndex];
                 int bipolarBit = (bitToEmbed == 1) ? 1 : -1;
@@ -112,8 +116,8 @@ public class DSSSStegnoService
                 // פיזור (Spread) הביט הבודד על פני SAMPLES_PER_BIT דגימות
                 for (int i = 0; i < DsssUtils.SAMPLES_PER_BIT; i++) 
                 {
-                    // הנוסחה המרכזית: דגימה חדשה = דגימה נוכחית + (אלפא * ביט * PN)
-                    double mod = alpha * bipolarBit * pnSequence[sampleIndex];
+                    // הנוסחה המרכזית: דגימה חדשה = דגימה נוכחית + (אלפא מקומית * ביט * PN)
+                    double mod = localAlpha * bipolarBit * pnSequence[sampleIndex];
 
                     double newVal = samples[sampleIndex] + mod;
 
@@ -141,11 +145,10 @@ public class DSSSStegnoService
             
             return null;
         } catch (Exception e) {
-            e.printStackTrace();
+            e.printStackTrace(); // בסביבת פרודקשן מומלץ להחליף ב-Logger
             return null;
         }
     }
-
 
 
     public String extract(byte[] fileBytes) {
@@ -167,20 +170,32 @@ public class DSSSStegnoService
             int sampleIndex = skipIndex;
 
             // ---------------------------------------------------------
-            // שלב 2: חילוץ אורך המסר (Header - 16 Bits)
+            // שלב 2: חילוץ אורך המסר (Header - 16 Bits) עם Zero-Mean Normalization
             // ---------------------------------------------------------
             int messageLength = 0;
             
             // לולאה הרצה 16 פעמים כדי לחלץ את 16 הביטים של האורך
             for (int i = 0; i < 16; i++) 
             {
+                if (sampleIndex + DsssUtils.SAMPLES_PER_BIT >= samples.length) break;
+
+                // טריק DSP: מציאת הממוצע המקומי כדי "לסנן" תדרי באס/תופים
+                double blockSum = 0;
+                for (int j = 0; j < DsssUtils.SAMPLES_PER_BIT; j++) {
+                    blockSum += samples[sampleIndex + j];
+                }
+                double blockMean = blockSum / DsssUtils.SAMPLES_PER_BIT;
+
                 double correlation = 0;
                 
                 // חישוב קורלציה עבור בלוק דגימות של ביט אחד
                 for (int j = 0; j < DsssUtils.SAMPLES_PER_BIT; j++) 
                 {
-                    // סכום המכפלות: דגימה מוטמעת כפול ערך ה-PN המקומי
-                    correlation += samples[sampleIndex] * pnSequence[sampleIndex];
+                    // החסרת הממוצע מנטרלת את רעש הרקע של השיר ומבליטה את ההצפנה!
+                    double normalizedSample = samples[sampleIndex] - blockMean;
+                    
+                    // סכום המכפלות: דגימה מוטמעת מנורמלת כפול ערך ה-PN המקומי
+                    correlation += normalizedSample * pnSequence[sampleIndex];
                     sampleIndex++;
                 }
                 
@@ -194,6 +209,12 @@ public class DSSSStegnoService
 
             System.out.println("Detected message length: " + messageLength + " bytes");
 
+            // מנגנון הגנה: בדיקה שהאורך הגיוני ולא קרה היפוך ביט בגלל רעש קיצוני
+            int maxPossibleBytes = (samples.length - skipIndex) / (DsssUtils.SAMPLES_PER_BIT * 8);
+            if (messageLength <= 0 || messageLength > maxPossibleBytes) {
+                return "שגיאה: הקובץ לא מכיל מסר חוקי, או שהמוזיקה רועשת מדי לפיענוח מדויק.";
+            }
+
             // ---------------------------------------------------------
             // שלב 3: חילוץ המסר עצמו
             // ---------------------------------------------------------
@@ -206,13 +227,23 @@ public class DSSSStegnoService
             // לולאה הרצה עד שחילצנו את כל ביטי ההודעה
             while (msgIndex < totalBitsToExtract) 
             {
+                if (sampleIndex + DsssUtils.SAMPLES_PER_BIT >= samples.length) break;
+
+                // סינון ממוצע מקומי גם לחילוץ המסר
+                double blockSum = 0;
+                for (int j = 0; j < DsssUtils.SAMPLES_PER_BIT; j++) {
+                    blockSum += samples[sampleIndex + j];
+                }
+                double blockMean = blockSum / DsssUtils.SAMPLES_PER_BIT;
+
                 double correlation = 0;
                 
                 // חישוב קורלציה לביט הנוכחי
                 for (int i = 0; i < DsssUtils.SAMPLES_PER_BIT; i++) 
                 {
                     if (sampleIndex >= samples.length) break; // הגנת חריגה
-                    correlation += samples[sampleIndex] * pnSequence[sampleIndex];
+                    double normalizedSample = samples[sampleIndex] - blockMean;
+                    correlation += normalizedSample * pnSequence[sampleIndex];
                     sampleIndex++;
                 }
                 

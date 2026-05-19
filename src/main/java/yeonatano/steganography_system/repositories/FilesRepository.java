@@ -3,7 +3,9 @@ package yeonatano.steganography_system.repositories;
 import java.util.List;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
+
 import yeonatano.steganography_system.datamodels.Files;
 
 /**
@@ -28,5 +30,11 @@ public interface FilesRepository extends MongoRepository<Files, String>
      */
     List<Files> findAllByUserId(String userId);
 
-    List<Files> findByUserIdAndIsDeletedFalse(String userId);
+
+    @Query(value = "{ '_id': ?0 }", fields = "{ 'imageData': 1, '_id': 0 }")
+    Files findImageDataById(String id);
+
+    // הוסף את זה לתוך FilesRepository
+    @Query(value = "{ 'userId': ?0, 'isDeleted': false }", fields = "{ 'imageData': 0 }")
+    List<Files> findHistoryWithoutData(String userId);
 }

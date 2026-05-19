@@ -11,7 +11,8 @@ import java.util.List;
  * על אובייקטים מסוג Message, כאשר המזהה הייחודי שלהם (ID) הוא מסוג String.
  */
 @Repository
-public interface MessageRepository extends MongoRepository<Message, String> {
+public interface MessageRepository extends MongoRepository<Message, String> 
+{
 
     /**
      * שאילתה מותאמת אישית השולפת את כל ההודעות שנשלחו לנמען ספציפי.

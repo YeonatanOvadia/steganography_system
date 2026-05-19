@@ -2,8 +2,6 @@ package yeonatano.steganography_system.services;
 
 import org.springframework.stereotype.Service;
 
-import com.vaadin.flow.data.provider.DataProvider;
-
 import yeonatano.steganography_system.datamodels.Files;
 import yeonatano.steganography_system.datamodels.Message;
 import yeonatano.steganography_system.repositories.FilesRepository;
@@ -12,24 +10,28 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * מחלקת שירות (Service) המרכזת את הלוגיקה העסקית הקשורה להודעות וקבצים במערכת.
- * תגית ה-@Service מסמנת ל-Spring לנהל את המחלקה הזו כ-Bean, 
- * כך שניתן יהיה להזריק אותה למחלקות אחרות (כמו קונטרולרים).
+ * מחלקת שירות (Service Layer) המרכזת את הלוגיקה העסקית של תעבורת ההודעות והקבצים במערכת.
+ * מחלקה זו מתפקדת כ"מנצח על התזמורת" (Orchestrator) בין נתוני הטקסט לבין נתוני המדיה (BLOBs).
+ * 
+ * תגית ה-@Service מסמנת ל-Spring Boot לנהל את המחלקה הזו כ-Singleton Bean 
+ * בתוך קונטיינר ה-IoC, מה שמאפשר הזרקתה למחלקות התצוגה (Views) והקונטרולרים בקלות.
  */
 @Service
 public class MessageService 
 {
     
-    // הרפוזיטוריז שמשמשים לשמירה ושליפה של נתונים ממסד הנתונים
+    // אובייקטי הגישה לנתונים (Data Access Objects - DAO).
+    // מוגדרים כ-final כדי להבטיח שהם מאותחלים פעם אחת בלבד בעת יצירת המחלקה (Immutability).
     private final MessageRepository messageRepository;
     private final FilesRepository filesRepository;
 
     /**
-     * בנאי המחלקה. משמש להזרקת תלויות (Dependency Injection).
-     * Spring יספק אוטומטית את מופעי הרפוזיטוריז הנדרשים.
+     * בנאי המחלקה - מיישם הזרקת תלויות (Constructor Dependency Injection).
+     * זוהי הפרקטיקה המומלצת ביותר ב-Spring (לעומת הזרקה עם @Autowired על השדות),
+     * כיוון שהיא הופכת את הקוד לקל יותר לבדיקה (Unit Testing) ומונעת מצב של תלויות חסרות.
      *
-     * @param messageRepository גישה לנתוני ההודעות ב-DB
-     * @param filesRepository גישה לנתוני הקבצים ב-DB
+     * @param messageRepository ממשק לשליפה ושמירה של אובייקטי Message
+     * @param filesRepository ממשק לשליפה ושמירה של אובייקטי Files
      */
     public MessageService(MessageRepository messageRepository, FilesRepository filesRepository) 
     {
@@ -38,88 +40,104 @@ public class MessageService
     }
 
     /**
-     * פונקציה לשליחת הודעה חדשה, עם אפשרות לצרף אליה קובץ.
+     * שולח הודעה חדשה, תוך ניהול חכם של צירוף קבצים.
      * 
-     * @param sender שם המשתמש ששולח את ההודעה
-     * @param receiver שם המשתמש שאליו נשלחת ההודעה
-     * @param body תוכן הטקסט של ההודעה
-     * @param fileData הנתונים הבינאריים של הקובץ המצורף (מערך בייטים). יכול להיות null אם אין קובץ.
-     * @param mimeType סוג הקובץ המצורף (למשל: image/jpeg)
-     * @param actionType סוג הפעולה שקשורה לקובץ (רלוונטי לתהליכי הסטגנוגרפיה במערכת)
+     * 💡 החלטה ארכיטקטונית (Normalization/Referencing):
+     * במקום לשמור את המידע הבינארי הכבד (מערך הבייטים של הקובץ) ישירות בתוך אובייקט ההודעה, 
+     * אנו שומרים קודם את הקובץ בטבלה/אוסף נפרד, שולפים את ה-ID הייחודי שלו, 
+     * ורק אותו שומרים בהודעה (כמפתח זר - Foreign Key). 
+     * זה מונע עומס זיכרון (Out Of Memory) כאשר שולפים רשימה ארוכה של הודעות ל-Inbox.
+     * 
+     * @param sender שם השולח
+     * @param receiver שם הנמען
+     * @param body תוכן גלוי
+     * @param fileData הנתונים הבינאריים של הקובץ (יכול להיות null)
+     * @param mimeType סוג הקובץ (למשל image/png)
+     * @param actionType סוג הפעולה שבוצעה על הקובץ (למשל "Embed" או "Upload")
      */
     public void sendMessage(String sender, String receiver, String body, byte[] fileData, String mimeType, String actionType) 
     {
         String fileId = null;
 
-
-        // שלב 1: בדיקה האם צורף קובץ להודעה (האם המערך אינו null ואינו ריק)
+        // שלב 1: טיפול בקובץ המצורף (אם קיים)
+        // מוודאים שהמערך מאותחל ויש בו נתונים ממש (גדול מ-0 בייטים)
         if (fileData != null && fileData.length > 0) 
         {
-            // יצירת אובייקט קובץ חדש עם פרטי השולח והקובץ
             Files newFile = new Files(sender, actionType, mimeType, fileData);
             
-            // שמירת הקובץ במסד הנתונים וקבלת האובייקט השמור (כולל ה-ID שנוצר לו)
+            // השמירה מחזירה את האובייקט המעודכן מהמסד, הכולל כעת את ה-ID שנוצר אוטומטית (Auto-Generated ID)
             newFile = filesRepository.save(newFile);
             
-            // שמירת מזהה הקובץ שנוצר, כדי לקשר אותו להודעה עצמה
+            // חילוץ המזהה החדש לצורך קישורו להודעה
             fileId = newFile.getId(); 
         }
 
-        // שלב 2: יצירת אובייקט ההודעה החדש (אם יש קובץ, יצורף המזהה שלו, אחרת fileId יהיה null)
+        // שלב 2: הרכבת ושמירת ההודעה
+        // אם לא היה קובץ, fileId יישאר null, וזהו מצב תקין לחלוטין (הודעת טקסט בלבד)
         Message msg = new Message(sender, receiver, body, fileId);
-        
-        // שמירת ההודעה במסד הנתונים
         messageRepository.save(msg);
     }
 
     /**
-     * פונקציה לשליפת כל ההודעות הנכנסות של משתמש מסוים.
-     * ההודעות יוחזרו ממוינות מהחדשה ביותר לישנה ביותר (Descending).
+     * שולף את תיבת הדואר הנכנס ("Inbox") עבור משתמש ספציפי.
      *
      * @param username שם המשתמש (הנמען)
-     * @return רשימה של הודעות השייכות לאותו משתמש
+     * @return רשימת הודעות מסודרת כרונולוגית בסדר יורד (Descending - מהחדש לישן)
      */
     public List<Message> getMyInbox(String username) 
     {
-        // קריאה לפונקציה ברפוזיטורי שמחפשת לפי נמען וממיינת לפי זמן שליחה
+        // 💡 שימוש בכוח של Spring Data JPA/Mongo:
+        // אין צורך לכתוב שאילתת SQL/MQL מורכבת. Spring מפרש את שם הפונקציה בזמן הריצה
+        // (findBy + Receiver + OrderBy + SentTime + Desc) ובונה את השאילתה אוטומטית ביעילות.
         return messageRepository.findByReceiverOrderBySentTimeDesc(username);
     }
 
     /**
-     * פונקציה לשליפת קובץ ממסד הנתונים לפי המזהה (ID) שלו.
-     * הפונקציה מגינה מפני קריסות (בודקת קלט ריק) ומוודאת שהקובץ לא נמחק לוגית.
+     * שולף את תיבת הדואר היוצא ("Sent") עבור משתמש ספציפי.
      *
-     * @param fileId מזהה הקובץ שברצוננו לשלוף
-     * @return אובייקט הקובץ (Files) אם הוא קיים ופעיל, אחרת מחזירה null
+     * @param username שם המשתמש (השולח)
+     * @return רשימת הודעות מסודרת כרונולוגית בסדר יורד
+     */
+    public List<Message> getMySentMessages(String username) 
+    {
+        return messageRepository.findBySenderOrderBySentTimeDesc(username);
+    }
+
+    /**
+     * שליפת קובץ בינארי ממסד הנתונים באמצעות המזהה שלו.
+     * משמשת את שכבת התצוגה (UI) כאשר משתמש מבקש לראות תצוגה מקדימה או להוריד קובץ.
+     *
+     * @param fileId המזהה הייחודי (UUID/ObjectId) של הקובץ
+     * @return אובייקט ה-Files השלם (כולל מערך הבייטים), או null במקרה של שגיאה או קובץ חסר
      */
     public Files getFileById(String fileId) 
     {
-        // בדיקת תקינות בסיסית - חזרה מהירה של null אם ה-ID ריק או null
+        // ולידציה מוקדמת (Fail-Fast): הגנה על שאילתת המסד מפני קלטים ריקים שיגרמו לשגיאות
         if (fileId == null || fileId.trim().isEmpty()) return null;
         
-        // חיפוש הקובץ במסד הנתונים, מוחזר כאובייקט Optional כדי למנוע NullPointerException
+        // שימוש ב-Optional הוא Best Practice ב-Java המודרנית למניעת NullPointerException.
+        // הוא מציין באופן מפורש שהתוצאה מהמסד עלולה לא להיות קיימת.
         Optional<Files> fileOpt = filesRepository.findById(fileId);
         
-        // בדיקה כפולה: גם שהקובץ נמצא ב-DB, וגם שהוא לא סומן כמחוק (isDeleted() שקר)
         if (fileOpt.isPresent()) 
         {
-            return fileOpt.get(); // הקובץ תקין - נחזיר אותו
+            // פריקת האובייקט מתוך מעטפת ה-Optional בבטחה
+            return fileOpt.get(); 
         }
         
-        // במקרה שהקובץ לא קיים או שסומן כמחוק
+        // החזרת null שקטה אם הקובץ לא נמצא (מאפשר ל-UI להציג הודעת "הקובץ הוסר" בצורה אלגנטית)
         return null;
     }
 
+    /**
+     * מחיקת הודעה ממסד הנתונים.
+     * שים לב: פונקציה זו מוחקת את רשומת ההודעה בלבד (Hard Delete של אובייקט ה-Message).
+     * אם נדרש למחוק גם את הקובץ המקושר או לבצע מחיקה לוגית (Soft Delete), זה המקום להרחיב את הלוגיקה.
+     *
+     * @param id מזהה ההודעה למחיקה
+     */
     public void deleteMessage(String id) 
     {
         messageRepository.deleteById(id);
-    }
-
-
-
-    public List<Message> getMySentMessages(String username) 
-    {
-        // קריאה לפונקציה ברפוזיטורי שמחפשת לפי נמען וממיינת לפי זמן שליחה
-        return messageRepository.findBySenderOrderBySentTimeDesc(username);
     }
 }

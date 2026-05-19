@@ -13,9 +13,18 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinSession;
 
-// ייבוא המודל שלך
+// ייבוא המודל של המשתמש
 import yeonatano.steganography_system.datamodels.User;
 
+/**
+ * תצוגת דף הבית (Landing Page / Dashboard) של מערכת STEGO-CORE.
+ * נתיב (Route): "" (כתובת הבסיס של המערכת).
+ * מחלקה זו מרכזת את חווית המשתמש הראשונית (UI/UX) ומשמשת כצומת ניווט מרכזי (Hub)
+ * לכל שאר חלקי המערכת (תיבת דואר, הצפנה, ניהול משתמשים).
+ * 
+ * הדף מתאפיין בעיצוב "סייברפאנק" (Cyberpunk) הממומש כולו דרך Java Style API, 
+ * ללא צורך בגיליונות CSS חיצוניים.
+ */
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("STEGO-CORE | Home")
 public class HomeView extends VerticalLayout 
@@ -23,25 +32,21 @@ public class HomeView extends VerticalLayout
 
     public HomeView() 
     {
-        // 1. הגדרות מסך ראשי ורקע סייברפאנק (הכל דרך Java Style API)
+        // --- 1. הגדרות מעטפת ויזואלית (Layout Configuration) ---
+        // הגדרת פריסת המסך (Flexbox): תופס את כל הגובה, ממרכז את התוכן אופקית, ומצמיד למעלה אנכית.
         setSizeFull();
         setAlignItems(Alignment.CENTER);
         setJustifyContentMode(JustifyContentMode.START);
         
-        getStyle()
-            .set("background-color", "#050505")
-            .set("background-image", "linear-gradient(rgba(13, 227, 20, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 227, 20, 0.04) 1px, transparent 1px)")
-            .set("background-size", "40px 40px")
-            .set("color", "#e0e0e0")
-            .set("padding-top", "4rem")
-            .set("font-family", "'Urbanist', sans-serif"); 
-
-        // 2. שליפת המשתמש
+        // --- 2. בקרת גישה ופרסונליזציה (Session Management) ---
+        // שליפת המשתמש המחובר כעת ב-Session. אם לא קיים, המערכת תזהה אותו כ"אורח".
         User user = (User) VaadinSession.getCurrent().getAttribute("user");
         String currentUsername = (user != null) ? user.getUsername() : "אורח";
 
-        // 3. כותרות
+        // --- 3. בניית הטיפוגרפיה (Typography & Headers) ---
+        
         H1 mainTitle = new H1("STEGO-CORE");
+        // שימוש ב-Inline CSS דרך Java כדי לייצר אפקטים מתקדמים (כמו Text Shadow זוהר)
         mainTitle.getStyle()
             .set("font-family", "'Rajdhani', sans-serif")
             .set("color", "#0de314")
@@ -58,12 +63,14 @@ public class HomeView extends VerticalLayout
             .set("font-size", "14px")
             .set("font-weight", "bold");
 
+        // אריזת הכותרות בקונטיינר אנכי צמוד (ללא מרווחים פנימיים)
         VerticalLayout headerLayout = new VerticalLayout(mainTitle, subTitle);
         headerLayout.setAlignItems(Alignment.CENTER);
         headerLayout.setSpacing(false);
         headerLayout.setPadding(false);
         headerLayout.getStyle().set("margin-bottom", "2rem");
         
+        // הצגת הודעת ברכה דינמית מבוססת זהות משתמש
         H3 welcomeMessage = new H3("SYSTEM ACCESSED: " + currentUsername.toUpperCase());
         welcomeMessage.getStyle()
             .set("color", "#0de314")
@@ -74,7 +81,9 @@ public class HomeView extends VerticalLayout
         greetingLayout.setAlignItems(Alignment.CENTER);
         greetingLayout.getStyle().set("margin-bottom", "1rem");
 
-        // 4. אזור ההסבר (בנוי מפסקאות Java בלבד)
+        // --- 4. אזור התוכן וההסבר (Content Area) ---
+        // בניית פסקאות טקסט (Paragraph) שמסבירות על האלגוריתמים שבבסיס המערכת
+        
         VerticalLayout descriptionLayout = new VerticalLayout();
         descriptionLayout.getStyle().set("text-align", "right").set("direction", "rtl");
         descriptionLayout.setPadding(false);
@@ -84,6 +93,7 @@ public class HomeView extends VerticalLayout
         p1.getStyle().set("font-size", "1.15em").set("line-height", "1.7").set("margin-top", "0");
 
         Paragraph p2 = new Paragraph("המשמעות היא שגם אם תיפלו קורבן לתקיפה, כמו האזנה להודעות שלכם, התוקף יראה רק קבצי מדיה רגילים ולא יחשוד כלל שמועבר מסר סמוי בתוך הקובץ.");
+        // הוספת מסגרת צדדית להדגשת הפיסקה (Blockquote Style)
         p2.getStyle()
             .set("font-size", "1.2em")
             .set("line-height", "1.7")
@@ -99,62 +109,80 @@ public class HomeView extends VerticalLayout
 
         descriptionLayout.add(p1, p2, p3);
 
-        // 5. חלונית סייברפאנק עוטפת
+        // --- 5. עיצוב המעטפת המרכזית (Glassmorphism & Background) ---
+        // עטיפת הברכה וההסבר בתוך כרטיסייה (Card) עם רקע תמונה משולב בגרדיאנט להחשכה
+        
         VerticalLayout cardContainer = new VerticalLayout(greetingLayout, descriptionLayout);
         cardContainer.setMaxWidth("800px");
         cardContainer.getStyle()
-            .set("background", "rgba(10, 10, 10, 0.85)")
+            // שימוש בנתיב יחסי לתמונת הרקע (התמונה צריכה לשבת בתיקיית src/main/resources/META-INF/resources/)
+            .set("background", "linear-gradient(rgba(10, 10, 10, 0.85), rgba(10, 10, 10, 0.85)), url('Images/background.jpg')")
+            .set("background-size", "cover") 
+            .set("background-position", "center") 
             .set("border", "1px solid #222")
             .set("border-right", "4px solid #0de314")
             .set("border-left", "4px solid #0de314")
             .set("padding", "2.5rem")
             .set("border-radius", "2px")
             .set("box-shadow", "0 15px 35px rgba(0,0,0,0.9)")
+            // שימוש בפילטר Backdrop ליצירת טשטוש (Blur) מודרני מסביב לאזור הטקסט
             .set("backdrop-filter", "blur(5px)");
+            
 
-        // 6. כפתורי ניווט עם עיצוב מותאם
+        // --- 6. ניתוב וכפתורי פעולה (Navigation & Actions) ---
+        // יצירת כפתורים באמצעות וקטורים (Vaadin Icons) ואירועי לחיצה (Click Listeners) המבצעים ניווט SPA
+        
         Button btnStgno = new Button("הצפנה וחילוץ", VaadinIcon.SHIELD.create(), e -> UI.getCurrent().navigate(StgnoView.class));
         stylePrimaryButton(btnStgno);
         btnStgno.setHeight("50px");
         btnStgno.setWidth("200px");
 
-        Button btnhistory = new Button("היסטוריית תקשורת", VaadinIcon.ARCHIVE.create(), e -> UI.getCurrent().navigate(HistoryView.class));
-        styleSecondaryButton(btnhistory);
+        Button btnhistory = new Button("היסטוריה", VaadinIcon.ARCHIVE.create(), e -> UI.getCurrent().navigate(HistoryView.class));
+        stylePrimaryButton(btnhistory);
         btnhistory.setHeight("50px");
         btnhistory.setWidth("200px");
 
-        Button btnUsers = new Button("ניהול זהויות", VaadinIcon.USERS.create(), e -> UI.getCurrent().navigate(UserView.class));
-        styleSecondaryButton(btnUsers);
 
         Button btnRegister = new Button("הרשמת סוכן", VaadinIcon.USERS.create(), e -> UI.getCurrent().navigate(RegisterView.class));
         styleSecondaryButton(btnRegister);
+        btnRegister.setHeight("50px");
+        btnRegister.setWidth("200px");
 
-        Button btnSentMessages = new Button("דואר יוצא", VaadinIcon.SHIELD.create(), e -> UI.getCurrent().navigate(StgnoView.class));
+
+        // תוקן: ניווט לדף SentMessagesView וקביעת גודל תקינה לכפתור
+        Button btnSentMessages = new Button("דואר יוצא", VaadinIcon.PAPERPLANE.create(), e -> UI.getCurrent().navigate(SentMessagesView.class));
         stylePrimaryButton(btnSentMessages);
-        btnStgno.setHeight("50px");
-        btnStgno.setWidth("200px");
+        btnSentMessages.setHeight("50px");
+        btnSentMessages.setWidth("200px");
 
-        Button btnInbox = new Button("דואר נכנס", VaadinIcon.SHIELD.create(), e -> UI.getCurrent().navigate(StgnoView.class));
+        // תוקן: ניווט לדף InboxView וקביעת גודל תקינה לכפתור
+        Button btnInbox = new Button("דואר נכנס", VaadinIcon.ENVELOPE.create(), e -> UI.getCurrent().navigate(InboxView.class));
         stylePrimaryButton(btnInbox);
-        btnStgno.setHeight("50px");
-        btnStgno.setWidth("200px");
+        btnInbox.setHeight("50px");
+        btnInbox.setWidth("200px");
 
+        // סידור הכפתורים בקבוצות אופקיות (שורות)
         HorizontalLayout MailActionButtons = new HorizontalLayout(btnSentMessages, btnInbox);
         HorizontalLayout primaryActionButtons = new HorizontalLayout(btnStgno, btnhistory);
-        HorizontalLayout secondaryActionButtons = new HorizontalLayout(btnUsers, btnRegister);
+        HorizontalLayout secondaryActionButtons = new HorizontalLayout(btnRegister);
         
-        VerticalLayout buttonsLayout = new VerticalLayout(primaryActionButtons, secondaryActionButtons, MailActionButtons);
+        // איגוד כל השורות לפאנל אנכי אחד
+        VerticalLayout buttonsLayout = new VerticalLayout(secondaryActionButtons, primaryActionButtons, MailActionButtons);
         buttonsLayout.setAlignItems(Alignment.CENTER);
         buttonsLayout.getStyle().set("margin-top", "2rem");
 
-        // 7. הוספת הכל למסך הראשי
+        // --- 7. הרכבת ה-DOM הסופי ---
         add(headerLayout, cardContainer, buttonsLayout);
     }
 
-    // ==========================================
-    // פונקציות עזר לעיצוב כפתורים (Java בלבד)
-    // ==========================================
+    // =========================================================================
+    // פונקציות עזר: ניהול עיצוב ואירועים (CSS Injection & Event Listeners)
+    // =========================================================================
 
+    /**
+     * מחילה עיצוב של "כפתור פעולה ראשי" (צבע מלא, בולט).
+     * @param btn הכפתור לעיצוב
+     */
     private void stylePrimaryButton(Button btn) 
     {
         btn.getStyle()
@@ -163,23 +191,32 @@ public class HomeView extends VerticalLayout
             .set("font-weight", "bold")
             .set("border-radius", "0")
             .set("letter-spacing", "1px")
-            .set("transition", "all 0.2s ease-in-out")
+            .set("transition", "all 0.2s ease-in-out") // אנימציה חלקה בעת שינוי מצב
             .set("cursor", "pointer");
 
-        // אפקט Hover דרך מאזיני אירועים של Java
+        /* 
+         * הוספת אינטראקטיביות (Hover Effects) ברמת ה-DOM דרך קוד Java.
+         * במקום לכתוב קובץ CSS עם פקודת :hover, אנחנו תופסים את אירועי העכבר 
+         * של הדפדפן (mouseover, mouseout) ומשנים את הסטייל בזמן אמת.
+         */
         btn.getElement().addEventListener("mouseover", e -> 
         {
             btn.getStyle().set("box-shadow", "0 0 20px rgba(13, 227, 20, 0.7)");
-            btn.getStyle().set("transform", "translateY(-2px) scale(1.02)");
+            btn.getStyle().set("transform", "translateY(-2px) scale(1.02)"); // הגדלה עדינה והרמה
         });
         btn.getElement().addEventListener("mouseout", e -> 
         {
             btn.getStyle().remove("box-shadow");
-            btn.getStyle().remove("transform");
+            btn.getStyle().remove("transform"); // החזרת הכפתור למצבו הטבעי
         });
     }
 
-    private void styleSecondaryButton(Button btn) {
+    /**
+     * מחילה עיצוב של "כפתור פעולה משני" (שקוף עם מסגרת, Outline).
+     * @param btn הכפתור לעיצוב
+     */
+    private void styleSecondaryButton(Button btn) 
+    {
         btn.getStyle()
             .set("background-color", "transparent")
             .set("color", "#0de314")
@@ -188,13 +225,16 @@ public class HomeView extends VerticalLayout
             .set("transition", "all 0.2s ease-in-out")
             .set("cursor", "pointer");
 
-        // אפקט Hover דרך מאזיני אירועים של Java
-        btn.getElement().addEventListener("mouseover", e -> {
+        // אפקט Hover - צביעת הרקע בשקיפות כשהעכבר מעל הכפתור
+        btn.getElement().addEventListener("mouseover", e -> 
+        {
             btn.getStyle().set("background-color", "rgba(13, 227, 20, 0.1)");
             btn.getStyle().set("box-shadow", "0 0 15px rgba(13, 227, 20, 0.3)");
             btn.getStyle().set("transform", "translateY(-2px)");
         });
-        btn.getElement().addEventListener("mouseout", e -> {
+        
+        btn.getElement().addEventListener("mouseout", e -> 
+        {
             btn.getStyle().set("background-color", "transparent");
             btn.getStyle().remove("box-shadow");
             btn.getStyle().remove("transform");

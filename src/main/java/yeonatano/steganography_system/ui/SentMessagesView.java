@@ -1,37 +1,38 @@
 package yeonatano.steganography_system.ui;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H1;
-import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinSession;
 
-import yeonatano.steganography_system.datamodels.Files;
 import yeonatano.steganography_system.datamodels.Message;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.MessageService;
 import yeonatano.steganography_system.services.StgnoService;
 
-import java.util.Base64;
+import java.io.ByteArrayInputStream;
 
+/**
+ * תצוגת "הודעות יוצאות" של המערכת.
+ * מחלקה זו מציגה טבלה (Grid) דינמית של כל ההודעות שהמשתמש הנוכחי שלח.
+ */
 @Route(value = "sent", layout = MainLayout.class)
 public class SentMessagesView extends VerticalLayout implements BeforeEnterObserver 
 {
-
     private MessageService msgService;
     private StgnoService stgnoService;
-    
     private Grid<Message> grid = new Grid<>(Message.class, false);
 
     public SentMessagesView(MessageService msgService, StgnoService stgnoService) 
@@ -45,110 +46,111 @@ public class SentMessagesView extends VerticalLayout implements BeforeEnterObser
 
         add(new H1("הודעות שנשלחו"));
 
-        // קריאה מסודרת לפונקציות העמודות
-        showRecipientColumn(); // השינוי המרכזי: "אל" במקום "מאת"
+        Button composeBtn = new Button("הודעה חדשה", e -> {
+        NewMessageDialog dialog = new NewMessageDialog(msgService, stgnoService, () -> refreshGrid());
+        dialog.open();
+        });
+
+        showRecipientColumn();
         showBodyColumn();
         showAttachmentColumn();
-        showDownloadColumn();
         showDeleteColumn();
         
         refreshGrid();
         grid.setSizeFull();
         
-        add(grid);
+        add(composeBtn, grid);
     }
 
-    /*
-     * עמודת הנמען (למי נשלחה ההודעה)
-     */
     private void showRecipientColumn() 
     {
-        // הערה: החלף את getReceiver() בשם המדויק של פונקציית ה-Getter במודל Message שלך (למשל getTo או getRecipient)
-        grid.addColumn(msg -> msg.getReceiver()).setHeader("אל");
+        grid.addColumn(Message::getReceiver).setHeader("אל");
     }
 
     private void showBodyColumn() 
     {
-        grid.addColumn(Message::getBody).setHeader("תוכן גלוי");
-    }
-
-    private void showAttachmentColumn() 
-    {
-        grid.addComponentColumn(msg -> {
-            if (!msg.hasFile()) return new Span("-");
+        grid.addComponentColumn(msg -> 
+        {
+            String fullText = msg.getBody();
             
-            Files attachedFile = msgService.getFileById(msg.getFileId());
-            
-            if (attachedFile == null) return new Span("הקובץ הוסר");
-
-            String mimeType = attachedFile.getMediaType();
-            byte[] fileData = attachedFile.getImageData();
-            
-            if (mimeType != null && fileData != null) 
-            {
-                String base64String = Base64.getEncoder().encodeToString(fileData);
-                String dataUri = "data:" + mimeType + ";base64," + base64String;
-
-                if (mimeType.startsWith("image/")) 
-                {
-                    com.vaadin.flow.component.html.Image uiImage = new com.vaadin.flow.component.html.Image(dataUri, "תצוגה מקדימה");
-                    uiImage.setHeight("60px"); 
-                    uiImage.getStyle().set("border-radius", "8px");
-                    uiImage.getStyle().set("cursor", "pointer");
-
-                    uiImage.addClickListener(event -> 
-                    {
-                        Dialog dialog = new Dialog();
-                        Image enlargedImage = new com.vaadin.flow.component.html.Image(dataUri, "תמונה מוגדלת");
-                        enlargedImage.getStyle().set("max-width", "90vw");
-                        enlargedImage.getStyle().set("max-height", "90vh");
-                        dialog.add(enlargedImage);
-                        dialog.open();
-                    });
-
-                    attachContextMenuForExtraction(uiImage, fileData, mimeType);
-                    return uiImage;
-                }
-                else if (mimeType.startsWith("audio/")) {
-                    com.vaadin.flow.dom.Element audioElement = new com.vaadin.flow.dom.Element("audio");
-                    audioElement.setAttribute("controls", "true");
-                    audioElement.setAttribute("src", dataUri);
-                    audioElement.getStyle().set("width", "180px");
-                    audioElement.getStyle().set("height", "40px");
-
-                    Span audioContainer = new Span();
-                    audioContainer.getElement().appendChild(audioElement);
-
-                    attachContextMenuForExtraction(audioContainer, fileData, mimeType);
-                    return audioContainer;
-                }
+            // טיפול במקרה של הודעה ריקה
+            if (fullText == null || fullText.isEmpty()) {
+                return new Span("-");
             }
-            return new Span(); 
-        }).setHeader("קובץ מצורף").setWidth("200px");
+            
+            // חיתוך הטקסט אם הוא ארוך מדי (מעל 30 תווים)
+            int maxLength = 30;
+            String displayText = fullText.length() > maxLength ? 
+                                 fullText.substring(0, maxLength) + "..." : 
+                                 fullText;
+            
+            Span textSpan = new Span(displayText);
+            
+            // אם הטקסט נחתך, נהפוך אותו ללחיץ מבחינה עיצובית ונוסיף אירוע לחיצה
+            if (fullText.length() > maxLength) 
+            {
+                textSpan.getStyle().set("cursor", "pointer");
+                textSpan.getStyle().set("color", "var(--lumo-primary-text-color)");
+                textSpan.getStyle().set("text-decoration", "underline");
+                
+                // לחיצה פותחת את הדיאלוג עם הטקסט המלא
+                textSpan.addClickListener(event -> showFullTextDialog(fullText));
+            }
+            
+            return textSpan;
+        }).setHeader("תוכן גלוי");
     }
 
-    private void showDownloadColumn() 
+    /**
+     * פונקציית עזר המייצרת חלון מודאלי להצגת טקסטים ארוכים בצורה נוחה
+     */
+    private void showFullTextDialog(String fullText) 
+    {
+        Dialog textDialog = new Dialog();
+        textDialog.setHeaderTitle("תוכן ההודעה המלא");
+        textDialog.setWidth("400px"); // רוחב שנוח לקריאה
+        
+        // שימוש ב-TextArea לקריאה בלבד מאפשר גלילה נוחה במקרה של מגילות טקסט
+        com.vaadin.flow.component.textfield.TextArea textArea = new com.vaadin.flow.component.textfield.TextArea();
+        textArea.setValue(fullText);
+        textArea.setReadOnly(true);
+        textArea.setWidthFull();
+        textArea.getStyle().set("max-height", "50vh"); // מונע מהחלון לחרוג מגובה המסך
+        
+        Button closeBtn = new Button("סגור", e -> textDialog.close());
+        
+        textDialog.add(textArea);
+        textDialog.getFooter().add(closeBtn);
+        
+        textDialog.open();
+    }
+    /**
+     * שימוש ברכיב הגלובלי MediaPreviewButton המבצע Lazy Loading.
+     * הקובץ הבינארי נשלף מה-DB רק כאשר המשתמש לוחץ על הכפתור.
+     */
+    private void showAttachmentColumn() 
     {
         grid.addComponentColumn(msg -> 
         {
-            if (!msg.hasFile()) return new Span();
-
-            yeonatano.steganography_system.datamodels.Files attachedFile = msgService.getFileById(msg.getFileId());
-            if (attachedFile == null || attachedFile.getMediaType() == null || attachedFile.getImageData() == null) return new Span();
-
-            String mimeType = attachedFile.getMediaType();
-            byte[] fileData = attachedFile.getImageData();
-
-            String extension = mimeType.equals("audio/wav") ? ".wav" : (mimeType.equals("image/png") ? ".png" : ".jpg");
-            String fileName = "sent_msg_" + msg.getId() + "_file" + extension;
-            String dataUri = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(fileData);
-
-            Anchor downloadLink = new Anchor(dataUri, "הורד קובץ");
-            downloadLink.getElement().setAttribute("download", fileName);
-            return downloadLink;
-        }).setHeader("הורדה");
+            if (!msg.hasFile()) return new Span("-");
+            
+            return new MediaPreviewButton(
+                "הצג מדיה", 
+                () -> msgService.getFileById(msg.getFileId()), 
+                stgnoService
+            );
+        }).setHeader("קובץ מצורף").setWidth("200px");
     }
 
+    /**
+     * עמודת הורדת הקבצים.
+     * עובדת באמצעות StreamResource כדי להזרים את הקובץ ישירות לדפדפן (ללא העמסת זיכרון).
+     */
+    
+
+    /**
+     * עמודת מחיקה אסינכרונית עם תצוגה אופטימית (Optimistic UI) וחלון אישור.
+     */
     private void showDeleteColumn() 
     {
         grid.addComponentColumn(msg -> 
@@ -158,25 +160,33 @@ public class SentMessagesView extends VerticalLayout implements BeforeEnterObser
             
             deleteBtn.addClickListener(event -> 
             {
-                msgService.deleteMessage(msg.getId());
-                refreshGrid();
+                // 1. פידבק מיידי על המסך ללא חלונית מודאלית חוסמת
+                Notification.show("מוחק את ההודעה מהתיבה...", 2000, Notification.Position.BOTTOM_START);
+                
+                // שמירת ה-Context של ה-UI הנוכחי
+                UI currentUI = UI.getCurrent();
+                
+                // 2. מעבר מיידי לרקע - ה-UI Thread משתחרר מיד ואפס תקיעות למסך
+                new Thread(() -> {
+                    try {
+                        // מחיקת עצם ה-Message ממסד הנתונים (MongoDB)
+                        msgService.deleteMessage(msg.getId());
+                        
+                        // 3. חזרה אסינכרונית בטוחה ל-UI לצורך העלמת השורה מהגריד
+                        currentUI.access(() -> {
+                            refreshGrid(); // השורה נעלמת בצורה חלקה מהמסך
+                        });
+                    } catch (Exception ex) {
+                        // 4. במקרה של שגיאה במסד הנתונים, נקבל התראת שגיאה ברורה על המסך
+                        currentUI.access(() -> {
+                            Notification.show("שגיאה: המחיקה נכשלה. " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                        });
+                    }
+                }).start();
             });
             
             return deleteBtn;
         }).setHeader("מחיקה");    
-    }
-
-    private void attachContextMenuForExtraction(com.vaadin.flow.component.Component uiComponent, byte[] fileData, String mimeType) 
-    {
-        ContextMenu menu = new ContextMenu(uiComponent);
-        menu.addItem("חלץ מסר סודי", e -> 
-        {
-            UI currentUI = UI.getCurrent(); 
-            stgnoService.extractMsg(fileData, mimeType, (success, secretMsg) -> 
-            {
-                currentUI.access(() -> Notification.show("המסר הסודי: " + secretMsg, 5000, Notification.Position.MIDDLE));
-            });
-        });
     }
 
     private void refreshGrid() 
@@ -184,7 +194,6 @@ public class SentMessagesView extends VerticalLayout implements BeforeEnterObser
         User user = (User) VaadinSession.getCurrent().getAttribute("user");
         if (user != null) 
         {
-            // שים לב: תצטרך לוודא שיש לך פונקציה כזו ב-MessageService שמחזירה את ההודעות שהמשתמש *שלח*
             grid.setItems(msgService.getMySentMessages(user.getUsername())); 
         }
     }
@@ -193,6 +202,15 @@ public class SentMessagesView extends VerticalLayout implements BeforeEnterObser
     public void beforeEnter(BeforeEnterEvent event)
     {
         if (VaadinSession.getCurrent().getAttribute("user") == null) 
-            event.rerouteTo(LoginView.class);    
+            event.rerouteTo(RegisterView.class);    
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) 
+    {
+        super.onAttach(attachEvent);
+        UI ui = attachEvent.getUI();
+        ui.setPollInterval(15000); 
+        ui.addPollListener(e -> refreshGrid());
     }
 }

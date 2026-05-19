@@ -19,7 +19,6 @@ import yeonatano.steganography_system.services.UserService;
  * מחלקה זו יורשת מ-VerticalLayout עבור סידור הרכיבים אנכית,
  * ומממשת את BeforeEnterObserver כדי לבדוק הרשאות גישה לפני טעינת הדף.
  */
-@Route(value = "users", layout = MainLayout.class)
 public class UserView extends VerticalLayout implements BeforeEnterObserver {
     
     // שירות לניהול משתמשים במערכת

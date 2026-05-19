@@ -9,22 +9,32 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * שירות המרת קבצים המשתמש ב-API של CloudConvert.
- * השירות מבצע הכל בזיכרון (In-Memory) בעזרת מערכי בייטים, ללא שמירת קבצים פיזיים על השרת,
- * מה שמשפר משמעותית את ביצועי המערכת ומונע תקלות תשתית.
+ * שירות המרת קבצים (File Conversion Service) המשתמש ב-API של CloudConvert.
+ * שירות זה נועד לפתור את בעיית חוסר התאימות (Incompatibility) של פורמטים מסוימים לאלגוריתמי הסטגנוגרפיה.
+ * 
+ * 💡 דגש ארכיטקטוני: השירות מתוכנן לעבוד במודל In-Memory בלבד.
+ * כלומר, הוא מקבל, משדר, ומחזיר מערכי בייטים (byte[]) מבלי לכתוב או לקרוא קבצים פיזיים (I/O) 
+ * מהדיסק הקשיח של השרת. זה מונע יצירת "קובצי זבל" ומשפר משמעותית את זמן התגובה ואבטחת המידע.
  */
 @Service
 public class ConvertService 
 {
 
-    // מפתח ה-API שלך (הערה: בסביבת ייצור אמיתית, מומלץ להעביר את זה לקובץ application.properties)
+    // מפתח אימות (Bearer Token) להתחברות מאובטחת מול שרתי CloudConvert.
+    // הערה להגנה: בפרודקשן אמיתי מפתח כזה נשמר כמשתנה סביבה (Environment Variable) או ב-application.properties.
     private static final String API_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiMGE1Y2IxMzg4NDI4ZmM5MzhjZjk0ZWE0NGY5ODc3ODI2OWEwZDBlNDZjMGE5OTFiMDZjZTcyODhiZGRjYzFiMWM5ZDYyOTQ4N2MwYTE5MmYiLCJpYXQiOjE3Nzg3NzYxNTAuNzIwMjg5LCJuYmYiOjE3Nzg3NzYxNTAuNzIwMjksImV4cCI6NDkzNDQ0OTc1MC43MTQxNzIsInN1YiI6Ijc1NTU1OTYyIiwic2NvcGVzIjpbInVzZXIud3JpdGUiLCJ1c2VyLnJlYWQiLCJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIiwid2ViaG9vay5yZWFkIiwid2ViaG9vay53cml0ZSIsInByZXNldC5yZWFkIiwicHJlc2V0LndyaXRlIl19.nSPmVqgbisqVbSr6y_546Cvm16W2eEz3ngY6PK_WhYTEHpXnUk5rttrxHFI2fWn3vUwI1YyP9tABeXJe0oFXot-PYWSMr7SwK3OndtRzHrhYzvhG0sydcA0Xsv83oecsa87eF3GOTY-iXmWRJ-JzHNn1QtNPyrq13Ie1Eb1BKoH5KcvaPZuwycHUVMSomm_xV2N5-Z3PNnVq9qKnAfWKH3fCJkn2w6UQUd0GqHGDZJETpCJT-xqW6bja5BHvKWomaFH4nhNZFSve1Vop2AAxNmaRlVhTDnBBsvUymdfSC0hOKJvoAOoMY6y_pNskZDYyBFBRRCfa2jwiezWW1R4v3dM172Y0JpMDkSvd9lymqEUvT-6mxd7TT7sWEvNiUDUNxmwbei3PtgJ8WxGfUXQzsZhlxlvBJKorK68s9hYJf9Ojk6B8mqmj7dEFc2Wb8HefI1Q4mfl4HdmfiZiyJZUwpzo4HIUO1fgTJ9dEtQjiWXL3ortjgbkVGkqXvmjit-XT3fQueT2I9WGEnKhg18n5T-hxLcC6EejgI73g3FWqv01SLKbNIF-TWCLzsj1VYchO10Hn0NsPlR-kNh-B7K2EAps8RkCCPzQIBggPBGpkI6aafbapQG89qOJOuw4FUejUS2oLlxmJiz0SG2XCtUFcQquwV7kNqwMRTDAePnVnbLU"; 
 
+    // קליינט HTTP סינכרוני מבית Square לביצוע בקשות רשת יעילות
     private final OkHttpClient client;
 
+    /**
+     * בנאי המחלקה - מאתחל את ה-OkHttpClient עם הגדרות Timeout מותאמות אישית.
+     */
     public ConvertService() 
     {
-        // זמן המתנה מוגדל (60 שניות) כי המרות יכולות לקחת זמן
+        // המרת קבצים (במיוחד קבצי שמע ווידאו) היא פעולה איטית התלויה בשרת צד-שלישי.
+        // הגדלת זמן ההמתנה (Timeout) ל-60 שניות מונעת מהאפליקציה לקרוס או לזרוק שגיאת 
+        // SocketTimeoutException בטרם ההמרה הושלמה.
         this.client = new OkHttpClient.Builder()
                 .connectTimeout(60, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
@@ -33,39 +43,51 @@ public class ConvertService
     }
 
     /**
-     * @param fileData הנתונים הבינאריים של הקובץ המקורי.
-     * @param sourceMimeType סוג הקובץ המקורי (למשל "image/webp" או "audio/mpeg") - קריטי כדי שהשרת יזהה!
-     * @param targetFormat הפורמט שאליו נרצה להמיר (למשל "png").
+     * פונקציית העל (Orchestrator) המנהלת את כל מחזור החיים של תהליך ההמרה.
+     *
+     * @param fileData הנתונים הבינאריים של הקובץ המקורי להמרה.
+     * @param sourceMimeType סוג הקובץ המקורי (למשל "image/webp") כדי שהשרת ידע לפענח אותו.
+     * @param targetFormat פורמט היעד המבוקש (למשל "png" או "wav").
+     * @return מערך בייטים המייצג את הקובץ לאחר המרה.
+     * @throws Exception זורק חריגה במקרה של כשל תקשורת או שגיאת המרה בשרת.
      */
     public byte[] convertFormat(byte[] fileData, String sourceMimeType, String targetFormat) throws Exception 
     {
-        // חילוץ הסיומת מתוך ה-MIME Type (למשל מ-"image/webp" נוציא "webp")
-        String sourceExt = "bin";
+        // חילוץ סיומת הקובץ מתוך ה-MIME Type (למשל מ-"image/webp" נחלץ "webp").
+        // פעולה זו הכרחית מכיוון שה-API של CloudConvert דורש סיומת קובץ תקינה כדי לפענח את המקור.
+        String sourceExt = "bin"; // Fallback ליתר ביטחון
         if (sourceMimeType != null && sourceMimeType.contains("/")) {
             sourceExt = sourceMimeType.substring(sourceMimeType.indexOf("/") + 1);
         }
 
+        // שלב 1: הצהרת כוונות (Job Creation)
+        // פנייה לשרת ליצירת מסגרת עבודה הכוללת העלאה, המרה לפורמט היעד, ויצירת קישור ייצוא.
         System.out.println("[CloudConvert] שלב 1: יצירת Job להמרה מ-" + sourceExt + " ל-" + targetFormat + "...");
         JSONObject jobResponse = createJob(targetFormat);
         String jobId = jobResponse.getJSONObject("data").getString("id");
         JSONObject uploadTask = jobResponse.getJSONObject("data").getJSONArray("tasks").getJSONObject(0);
 
+        // שלב 2: העלאת המידע הבינארי לכתובת הייעודית שקיבלנו מהשרת
         System.out.println("[CloudConvert] שלב 2: העלאת הקובץ לשרת...");
-        // מעבירים גם את ה-MIME Type וגם את הסיומת
         uploadFile(uploadTask, fileData, sourceMimeType, sourceExt);
 
+        // שלב 3: המתנה פעילה (Polling) עד לסיום העיבוד בצד השרת
         System.out.println("[CloudConvert] שלב 3: המתנה לסיום ההמרה...");
         String downloadUrl = waitForResult(jobId);
 
+        // שלב 4: משיכת התוצאה המוצלחת ישירות לתוך זיכרון ה-RAM
         System.out.println("[CloudConvert] שלב 4: הורדת הקובץ המומר...");
         return downloadFileAsBytes(downloadUrl);
     }
+
     /**
-     * יוצר משימה חדשה (Job) ב-CloudConvert, ומגדיר דינאמית את פורמט היעד להמרה.
+     * פונה ל-API של CloudConvert כדי להגדיר את משימת ההמרה (Job).
+     * מגדירה צינור נתונים (Pipeline) בעל 3 שלבים: Import -> Convert -> Export.
      */
     private JSONObject createJob(String targetFormat) throws IOException 
     {
-        // הזרקת פורמט היעד (targetFormat) לתוך ה-JSON של הבקשה
+        // שימוש בתכונת Text Blocks (מ-Java 15) ליצירת JSON קריא ונוח לתחזוקה.
+        // הזרקת פורמט היעד (%s) מתבצעת באופן דינמי באמצעות פונקציית formatted.
         String jsonPayload = """
             {
                 "tasks": {
@@ -88,6 +110,7 @@ public class ConvertService
             }
             """.formatted(targetFormat);
 
+        // בניית בקשת HTTP POST עם JSON Payload
         RequestBody body = RequestBody.create(jsonPayload, MediaType.get("application/json"));
         Request request = new Request.Builder()
                 .url("https://api.cloudconvert.com/v2/jobs")
@@ -95,6 +118,7 @@ public class ConvertService
                 .post(body)
                 .build();
 
+        // ביצוע הבקשה וקריאת התגובה
         try (Response response = client.newCall(request).execute())
         {
             if (!response.isSuccessful()) 
@@ -105,20 +129,23 @@ public class ConvertService
     }
 
     /**
-     * מעלה את מערך הבייטים של הקובץ לכתובת ההעלאה שהתקבלה מהשרת.
+     * מטפלת בתהליך ההעלאה של הקובץ הגולמי באמצעות Multipart Form Data.
      */
     private void uploadFile(JSONObject uploadTask, byte[] fileData, String mimeType, String ext) throws IOException 
     {
+        // חילוץ פרטי הטופס (כתובת ופרמטרי אימות) המאפשרים העלאה ישירה לשרת אחסון הזמני
         JSONObject form = uploadTask.getJSONObject("result").getJSONObject("form");
         String uploadUrl = form.getString("url");
         JSONObject parameters = form.getJSONObject("parameters");
 
         MultipartBody.Builder builder = new MultipartBody.Builder().setType(MultipartBody.FORM);
         
+        // הזרקת כל פרמטרי ההרשאה שחזרו מהשרת לתוך הטופס
         for (String key : parameters.keySet())
             builder.addFormDataPart(key, parameters.get(key).toString());
         
-        // התיקון החשוב: שימוש בסיומת האמיתית וב-MIME Type האמיתי של הקובץ!
+        // הזרקת הקובץ עצמו (fileData) בליווי שם קובץ וירטואלי וה-MIME Type שלו.
+        // הגדרת סיומת נכונה (ext) היא קריטית לפענוח מוצלח על ידי המנוע של CloudConvert.
         String filename = "upload_file." + ext;
         builder.addFormDataPart("file", filename,
                 RequestBody.create(fileData, MediaType.parse(mimeType != null ? mimeType : "application/octet-stream")));
@@ -134,12 +161,15 @@ public class ConvertService
                 throw new IOException("Upload failed: " + response.code());
         }
     }
+
     /**
-     * ממתין (Polling) עד שהמשימה מסתיימת בשרת, ומחזיר את הקישור להורדה.
+     * פונקציית דגימה מחזורית (Polling).
+     * מכיוון ש-CloudConvert מבצע פעולות אסינכרוניות אצלו בשרת, אנו נדרשים לבדוק את
+     * מצב המשימה (Status) כל מספר שניות עד שהיא מסתיימת (או נכשלת).
      */
     private String waitForResult(String jobId) throws Exception 
     {
-        while (true) 
+        while (true) // לולאה הרצה עד לקבלת תוצאה או זריקת שגיאה
         {
             Request request = new Request.Builder()
                     .url("https://api.cloudconvert.com/v2/jobs/" + jobId)
@@ -151,13 +181,13 @@ public class ConvertService
             {
                 if (!response.isSuccessful()) 
                     throw new IOException("Failed to check status");
-                
 
                 JSONObject json = new JSONObject(response.body().string());
                 String status = json.getJSONObject("data").getString("status");
 
                 if (status.equals("finished")) 
                 {
+                    // חיפוש הקישור (URL) המיוצא מתוך אובייקט ה-JSON המסועף
                     JSONArray tasks = json.getJSONObject("data").getJSONArray("tasks");
                     for (int i = 0; i < tasks.length(); i++) 
                     {
@@ -168,17 +198,20 @@ public class ConvertService
                         }
                     }
                 } 
-                
                 else if (status.equals("error")) 
+                {
                     throw new Exception("ההמרה נכשלה בשרת CloudConvert.");
+                }
             
-                Thread.sleep(3000); // המתנה של 3 שניות בין בדיקות
+                // אם המשימה בסטטוס "processing" או "waiting", מרדימים את ה-Thread
+                // ל-3 שניות כדי לא להציף את השרת בבקשות (Rate Limiting) ולנסות שוב.
+                Thread.sleep(3000); 
             }
         }
     }
 
     /**
-     * מוריד את הקובץ המומר מהשרת ומחזיר אותו כמערך בייטים (במקום לשמור לדיסק).
+     * ביצוע קריאת HTTP GET לכתובת שהתקבלה, ומשיכת כל גוף התשובה למערך בייטים (In-Memory).
      */
     private byte[] downloadFileAsBytes(String downloadUrl) throws IOException 
     {
@@ -189,7 +222,7 @@ public class ConvertService
             {
                 throw new IOException("הורדת הקובץ נכשלה.");
             }
-            // קריאת כל המידע למערך בייטים ישירות מהזרם של התשובה
+            // קריאת כל המידע למערך בייטים ישירות מהזרם (Stream) של התשובה.
             return response.body().bytes();
         }
     }

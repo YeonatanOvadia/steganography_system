@@ -27,131 +27,141 @@ import yeonatano.steganography_system.services.StgnoService;
 import java.io.File;
 import java.util.Base64;
 
+/**
+ * תצוגת "תיבת דואר נכנס" (Inbox).
+ * מחלקה זו אחראית על הצגת ההודעות שהתקבלו למשתמש המחובר, וכן מספקת ממשק
+ * מודאלי (Dialog) ליצירת ושליחת הודעות חדשות, כולל אופציה להטמעת מסר סטגנוגרפי בזמן אמת.
+ */
 @Route(value = "inbox", layout = MainLayout.class)
 public class InboxView extends VerticalLayout implements BeforeEnterObserver 
 {
 
+    // הזרקת שירותים לגישה למסד הנתונים ולמנוע האלגוריתמיקה
     private MessageService msgService;
     private StgnoService stgnoService;
     
+    // Grid להצגת אובייקטי Message ללא ייצור עמודות אוטומטי (שליטה מלאה בתצוגה)
     private Grid<Message> grid = new Grid<>(Message.class, false);
 
+    /**
+     * בנאי המחלקה. מרכיב את ממשק המשתמש הראשי.
+     */
     public InboxView(MessageService msgService, StgnoService stgnoService) 
     {
         this.msgService = msgService;
         this.stgnoService = stgnoService;
 
+        // הגדרת פריסת עמוד (Flexbox)
         setSizeFull();
         setAlignItems(Alignment.CENTER);
         setSpacing(true);
 
         add(new H1("תיבת דואר נכנס"));
 
-        Button composeBtn = new Button("הודעה חדשה", e -> openComposeDialog());
-        
-        // קריאה מסודרת לפונקציות העמודות בדיוק כמו ב-HistoryView
+        // כפתור Call To Action ראשי לפתיחת חלונית יצירת הודעה חדשה
+        Button composeBtn = new Button("הודעה חדשה", e -> {
+            NewMessageDialog dialog = new NewMessageDialog(msgService, stgnoService, () -> refreshGrid());
+            dialog.open();
+        });        
+        // אתחול העמודות בצורה מודולרית
         showSenderColumn();
         showBodyColumn();
         showAttachmentColumn();
-        showDownloadColumn();
         showDeleteColumn();
         
+        // טעינת הנתונים מהמסד אל הטבלה
         refreshGrid();
         grid.setSizeFull();
         
         add(composeBtn, grid);
     }
 
+    // --- בניית עמודות הטבלה ---
+
+    /**
+     * עמודת השולח.
+     */
     private void showSenderColumn() 
     {
         grid.addColumn(Message::getSender).setHeader("מאת");
     }
 
+    /**
+     * עמודת התוכן הגלוי.
+     */
     private void showBodyColumn() 
     {
-        grid.addColumn(Message::getBody).setHeader("תוכן גלוי");
+        grid.addComponentColumn(msg -> 
+        {
+            String fullText = msg.getBody();
+            
+            // טיפול במקרה של הודעה ריקה
+            if (fullText == null || fullText.isEmpty()) {
+                return new Span("-");
+            }
+            
+            // חיתוך הטקסט אם הוא ארוך מדי (מעל 30 תווים)
+            int maxLength = 30;
+            String displayText = fullText.length() > maxLength ? 
+                                 fullText.substring(0, maxLength) + "..." : 
+                                 fullText;
+            
+            Span textSpan = new Span(displayText);
+            
+            // אם הטקסט נחתך, נהפוך אותו ללחיץ מבחינה עיצובית ונוסיף אירוע לחיצה
+            if (fullText.length() > maxLength) 
+            {
+                textSpan.getStyle().set("cursor", "pointer");
+                textSpan.getStyle().set("color", "var(--lumo-primary-text-color)");
+                textSpan.getStyle().set("text-decoration", "underline");
+                
+                // לחיצה פותחת את הדיאלוג עם הטקסט המלא
+                textSpan.addClickListener(event -> showFullTextDialog(fullText));
+            }
+            
+            return textSpan;
+        }).setHeader("תוכן גלוי");
+    }
+
+    /**
+     * פונקציית עזר המייצרת חלון מודאלי להצגת טקסטים ארוכים בצורה נוחה
+     */
+    private void showFullTextDialog(String fullText) 
+    {
+        Dialog textDialog = new Dialog();
+        textDialog.setHeaderTitle("תוכן ההודעה המלא");
+        textDialog.setWidth("400px"); // רוחב שנוח לקריאה
+        
+        // שימוש ב-TextArea לקריאה בלבד מאפשר גלילה נוחה במקרה של מגילות טקסט
+        com.vaadin.flow.component.textfield.TextArea textArea = new com.vaadin.flow.component.textfield.TextArea();
+        textArea.setValue(fullText);
+        textArea.setReadOnly(true);
+        textArea.setWidthFull();
+        textArea.getStyle().set("max-height", "50vh"); // מונע מהחלון לחרוג מגובה המסך
+        
+        Button closeBtn = new Button("סגור", e -> textDialog.close());
+        
+        textDialog.add(textArea);
+        textDialog.getFooter().add(closeBtn);
+        
+        textDialog.open();
     }
 
     private void showAttachmentColumn() 
     {
         grid.addComponentColumn(msg -> {
-            if (!msg.hasFile()) return new Span("-");
-            
-            // שליפת הקובץ מתוך מסד הנתונים בעזרת ה-ID שלו שיש בהודעה
-            yeonatano.steganography_system.datamodels.Files attachedFile = msgService.getFileById(msg.getFileId());
-            
-            if (attachedFile == null) return new Span("הקובץ הוסר");
+            if (!msg.hasFile()) return new Span("-"); 
 
-            String mimeType = attachedFile.getMediaType();
-            byte[] fileData = attachedFile.getImageData();
-            
-            if (mimeType != null && fileData != null) 
-            {
-                String base64String = Base64.getEncoder().encodeToString(fileData);
-                String dataUri = "data:" + mimeType + ";base64," + base64String;
-
-                if (mimeType.startsWith("image/")) 
-                {
-                    com.vaadin.flow.component.html.Image uiImage = new com.vaadin.flow.component.html.Image(dataUri, "תצוגה מקדימה");
-                    uiImage.setHeight("60px"); 
-                    uiImage.getStyle().set("border-radius", "8px");
-                    uiImage.getStyle().set("cursor", "pointer");
-
-                    // לחיצה שמאלית להגדלה
-                    uiImage.addClickListener(event -> 
-                    {
-                        Dialog dialog = new Dialog();
-                        com.vaadin.flow.component.html.Image enlargedImage = new com.vaadin.flow.component.html.Image(dataUri, "תמונה מוגדלת");
-                        enlargedImage.getStyle().set("max-width", "90vw");
-                        enlargedImage.getStyle().set("max-height", "90vh");
-                        dialog.add(enlargedImage);
-                        dialog.open();
-                    });
-
-                    // לחיצה ימנית לחילוץ
-                    attachContextMenuForExtraction(uiImage, fileData, mimeType);
-                    return uiImage;
-                }
-                else if (mimeType.startsWith("audio/")) 
-                {
-                    com.vaadin.flow.dom.Element audioElement = new com.vaadin.flow.dom.Element("audio");
-                    audioElement.setAttribute("controls", "true");
-                    audioElement.setAttribute("src", dataUri);
-                    audioElement.getStyle().set("width", "180px");
-                    audioElement.getStyle().set("height", "40px");
-
-                    Span audioContainer = new Span();
-                    audioContainer.getElement().appendChild(audioElement);
-
-                    // לחיצה ימנית על אודיו
-                    attachContextMenuForExtraction(audioContainer, fileData, mimeType);
-                    return audioContainer;
-                }
-            }
-            return new Span(); 
+            return new MediaPreviewButton(
+                "הצג מדיה", 
+                () -> msgService.getFileById(msg.getFileId()), 
+                stgnoService
+            );
         }).setHeader("קובץ מצורף").setWidth("200px");
     }
-
-    private void showDownloadColumn() {
-        grid.addComponentColumn(msg -> {
-            if (!msg.hasFile()) return new Span();
-
-            yeonatano.steganography_system.datamodels.Files attachedFile = msgService.getFileById(msg.getFileId());
-            if (attachedFile == null || attachedFile.getMediaType() == null || attachedFile.getImageData() == null) return new Span();
-
-            String mimeType = attachedFile.getMediaType();
-            byte[] fileData = attachedFile.getImageData();
-
-            String extension = mimeType.equals("audio/wav") ? ".wav" : (mimeType.equals("image/png") ? ".png" : ".jpg");
-            String fileName = "msg_" + msg.getId() + "_file" + extension;
-            String dataUri = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(fileData);
-
-            Anchor downloadLink = new Anchor(dataUri, "הורד קובץ");
-            downloadLink.getElement().setAttribute("download", fileName);
-            return downloadLink;
-        }).setHeader("הורדה");
-    }
-
+    /**
+     * עמודת מחיקת הודעה (קריאה ל-Service ורענון הממשק).
+     */
     private void showDeleteColumn() 
     {
         grid.addComponentColumn(msg -> 
@@ -161,97 +171,40 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
             
             deleteBtn.addClickListener(event -> 
             {
-                // מחיקה של כל ההודעה (נניח ויש לך פונקציה כזו ב-MessageService)
-                msgService.deleteMessage(msg.getId());
-                refreshGrid();
+                // 1. פידבק מיידי על המסך ללא חלונית מודאלית חוסמת
+                Notification.show("מוחק את ההודעה מהתיבה...", 2000, Notification.Position.BOTTOM_START);
+                
+                // שמירת ה-Context של ה-UI הנוכחי
+                UI currentUI = UI.getCurrent();
+                
+                // 2. מעבר מיידי לרקע - ה-UI Thread משתחרר מיד ואפס תקיעות למסך
+                new Thread(() -> {
+                    try {
+                        // מחיקת עצם ה-Message ממסד הנתונים (MongoDB)
+                        msgService.deleteMessage(msg.getId());
+                        
+                        // 3. חזרה אסינכרונית בטוחה ל-UI לצורך העלמת השורה מהגריד
+                        currentUI.access(() -> {
+                            refreshGrid(); // השורה נעלמת בצורה חלקה מהמסך
+                        });
+                    } catch (Exception ex) {
+                        // 4. במקרה של שגיאה במסד הנתונים, נקבל התראת שגיאה ברורה על המסך
+                        currentUI.access(() -> {
+                            Notification.show("שגיאה: המחיקה נכשלה. " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                        });
+                    }
+                }).start();
             });
             
             return deleteBtn;
         }).setHeader("מחיקה");    
     }
 
-    // פונקציית עזר להוספת התפריט הימני
-    private void attachContextMenuForExtraction(com.vaadin.flow.component.Component uiComponent, byte[] fileData, String mimeType) {
-        ContextMenu menu = new ContextMenu(uiComponent);
-        menu.addItem("חלץ מסר סודי", e -> 
-        {
-            UI currentUI = UI.getCurrent(); 
-            stgnoService.extractMsg(fileData, mimeType, (success, secretMsg) -> 
-            {
-                currentUI.access(() -> Notification.show("המסר הסודי: " + secretMsg, 5000, Notification.Position.MIDDLE));
-            });
-        });
-    }
+    // --- לוגיקה עסקית ופונקציות עזר ---
 
-    private void openComposeDialog() 
-    {
-        Dialog dialog = new Dialog();
-        
-        TextField to = new TextField("אל (שם משתמש)");
-        TextField body = new TextField("הודעה גלויה");
-        
-        Checkbox doEmbed = new Checkbox("האם להטמיע מסר סודי?");
-        TextField secret = new TextField("המסר הסודי");
-        secret.setVisible(false); 
-        
-        doEmbed.addValueChangeListener(e -> secret.setVisible(e.getValue()));
-
-        File[] uploaded = new File[1];
-        String[] mime = new String[1];
-        
-        Upload upload = new Upload(UploadHandler.toTempFile((meta, file) -> 
-        {
-            uploaded[0] = file;
-            mime[0] = meta.contentType();
-        }));
-
-        Button send = new Button("שלח", e -> 
-        {
-            UI currentUI = UI.getCurrent(); 
-            try 
-            {
-                byte[] data = null;
-                if (uploaded[0] != null && uploaded[0].exists()) 
-                {
-                    data = java.nio.file.Files.readAllBytes(uploaded[0].toPath());
-                }
-                
-                User user = (User) VaadinSession.getCurrent().getAttribute("user");
-                if (user == null) 
-                {
-                    Notification.show("שגיאה: משתמש לא מחובר");
-                    return;
-                }
-                String sender = user.getUsername();
-
-                if (doEmbed.getValue() && data != null) 
-                {
-                    stgnoService.embedMsg(data, mime[0], secret.getValue(), sender, (success, result) -> {
-                        msgService.sendMessage(sender, to.getValue(), body.getValue(), result, mime[0], "Embed");
-                        currentUI.access(() -> { 
-                            dialog.close(); 
-                            refreshGrid(); 
-                        });
-                    });
-                } 
-
-                else 
-                {
-                    msgService.sendMessage(sender, to.getValue(), body.getValue(), data, mime[0], "Upload");
-                    dialog.close(); 
-                    refreshGrid(); 
-                }
-            } 
-            catch (Exception ex) 
-            { 
-                Notification.show("שגיאה בשליחה: " + ex.getMessage()); 
-            }
-        });
-
-        dialog.add(new VerticalLayout(to, body, upload, doEmbed, secret), send);
-        dialog.open();
-    }
-
+    /**
+     * רענון נתוני הטבלה תוך סינון לפי המשתמש המחובר כעת (אבטחת מידע ברמת האפליקציה).
+     */
     private void refreshGrid() 
     {
         User user = (User) VaadinSession.getCurrent().getAttribute("user");
@@ -259,10 +212,14 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
             grid.setItems(msgService.getMyInbox(user.getUsername())); 
     }
 
+    /**
+     * בקרת הרשאות לפני טעינת המסך.
+     * שים לב: כאן מוגדר ניתוב ל-RegisterView במקרה של משתמש לא מחובר.
+     */
     @Override
     public void beforeEnter(BeforeEnterEvent event) 
     {
         if (VaadinSession.getCurrent().getAttribute("user") == null) 
-            event.rerouteTo(LoginView.class);    
+            event.rerouteTo(RegisterView.class);    
     }
 }

@@ -6,10 +6,12 @@ import yeonatano.steganography_system.datamodels.Files;
 import yeonatano.steganography_system.repositories.StgnoRepository;
 
 /**
- * מחלקת השירות המרכזית (Facade) המנהלת את כלל פעולות הסטגנוגרפיה במערכת.
- * המחלקה מקבלת בקשות להטמעה או חילוץ, בודקת את סוג הקובץ, 
- * ומנתבת את העבודה לאלגוריתם המתאים (F5, PVD, או DSSS).
- * העבודה מתבצעת ברקע (Threads) כדי לא לתקוע את ממשק המשתמש (UI).
+ * מחלקת השירות המרכזית (Facade Pattern) לניהול פעולות הסטגנוגרפיה במערכת.
+ * מחלקה זו משמשת כ"שער גישה" יחיד עבור שכבת התצוגה (UI), ומסתירה ממנה את המורכבות
+ * של בחירת אלגוריתמי ההצפנה השונים, המרות הפורמטים ותהליכי הרקע.
+ * 
+ * בנוסף, המחלקה מנהלת את הארכיטקטורה האסינכרונית של המערכת על ידי עטיפת פעולות 
+ * הקידוד והפענוח הכבדות בתהליכונים (Threads), כדי למנוע חסימה (Blocking) של ממשק המשתמש.
  */
 @Service
 public class StgnoService 
@@ -17,7 +19,8 @@ public class StgnoService
 
     /**
      * ממשק (Interface) להגדרת Callback לאחר סיום תהליך הטמעה (Embed).
-     * מאפשר ל-UI לדעת מתי ה-Thread סיים לעבוד ולקבל את התוצאה.
+     * תבנית זו מאפשרת תקשורת אסינכרונית: ה-Thread שעובד ברקע משתמש בפונקציה זו
+     * כדי "להודיע" בחזרה לשכבת ה-UI שהעבודה הסתיימה ולהעביר לה את התוצאה.
      */
     public interface EmbedTaskCallback 
     {
@@ -32,19 +35,23 @@ public class StgnoService
         public void onComplete(boolean isSuccess, String msg);
     }
 
-    // רפוזיטורי לשמירת היסטוריית פעולות (הטמעה/חילוץ) במסד הנתונים
+    // רפוזיטורי לשמירת תיעוד של הפעולות (Audit Trail) במסד הנתונים
     private StgnoRepository stgnoRepository;
     
-    // שירותים ספציפיים לכל אלגוריתם הצפנה
-    private F5StegoService f5StegoService;       // עבור תמונות JPEG/JPG
-    private DSSSStegnoService dsssStegnoService; // עבור קבצי שמע WAV
-    private PVDStegoService pvdStegoService;     // עבור תמונות PNG
-    private ConvertService convertService; // אות קטנה!
-    // אובייקט Thread שישמש להרצת משימות כבדות ברקע
+    // שירותי אלגוריתמים ספציפיים (Strategy-like structure)
+    private F5StegoService f5StegoService;       // לטיפול בקבצי JPEG/JPG
+    private DSSSStegnoService dsssStegnoService; // לטיפול בקבצי שמע WAV
+    private PVDStegoService pvdStegoService;     // לטיפול בקבצי PNG
+    
+    // שירות המרה - מגביר את גמישות המערכת על ידי טיפול בקבצים שאינם נתמכים במקור
+    private ConvertService convertService; 
+    
+    // אובייקט Thread מנוהל להרצת אלגוריתמים מבלי "להקפיא" את השרת והלקוח
     private Thread StgnoTask;
 
     /**
-     * בנאי המחלקה. Spring מזריק לכאן אוטומטית את הרפוזיטורי ואת כל שירותי האלגוריתמים.
+     * בנאי המחלקה. מנצל את מנגנון ה-IoC (Inversion of Control) של Spring 
+     * לצורך הזרקת תלויות (Dependency Injection) של כלל שירותי הליבה והרפוזיטורי.
      */
     public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService, PVDStegoService pvdStegoService, ConvertService convertService) 
     {
@@ -53,16 +60,15 @@ public class StgnoService
         this.dsssStegnoService = dsssStegnoService;
         this.pvdStegoService = pvdStegoService;
         this.convertService = convertService;
-
     }
 
     /**
-     * פונקציית עזר לשמירת תיעוד של הפעולה שבוצעה בהיסטוריית המשתמש במסד הנתונים.
+     * רושמת פעולת סטגנוגרפיה (הצלחה/ביצוע) לתוך היסטוריית המערכת במסד הנתונים.
      *
-     * @param userId שם המשתמש שביצע את הפעולה
-     * @param action סוג הפעולה ("Embed" או "Extract")
-     * @param type סוג הקובץ (MimeType)
-     * @param data נתוני הקובץ לאחר העיבוד
+     * @param userId מזהה המשתמש שביצע את הפעולה.
+     * @param action סוג הפעולה (למשל "Embed" או "Extract").
+     * @param type פורמט המדיה (MIME Type) של הקובץ שנוצר.
+     * @param data נתוני הקובץ (BLOB) לשמירה.
      */
     public void saveToHistory(String userId, String action, String type, byte[] data) 
     {
@@ -70,20 +76,23 @@ public class StgnoService
         stgnoRepository.save(stegoEntry);
     }
 
-    //_________________________________________הטמעה_________________________________________
+    // ========================================================================
+    // מנגנון ההטמעה (Embedding Engine)
+    // ========================================================================
 
     /**
-     * פונקציה ראשית להטמעת מסר סודי (Embed). 
-     * פותחת Thread חדש כדי לבצע את ההצפנה מבלי לתקוע את המערכת.
-     * 
-     * @param fileBytes נתוני הקובץ המקוריים
-     * @param mimeType סוג הקובץ (קובע איזה אלגוריתם יופעל)
-     * @param msg המסר הסודי שיוטמע
-     * @param username שם המשתמש לשמירה בהיסטוריה
-     * @param embedTaskCallback פונקציית החזרה שתופעל בסיום
+     * הפונקציה הראשית (Entry Point) להטמעת מסר סודי לתוך קובץ.
+     * מפעילה תהליך רב-שלבי: ולידציה -> המרת פורמט (Fallback) -> הטמעה לפי ניתוב -> שמירה -> Callback.
+     *
+     * @param fileBytes נתוני קובץ המקור הבינאריים.
+     * @param mimeType סוג הקובץ. משמש כפרמטר החלטה (Decision parameter) בניתוב לאלגוריתם.
+     * @param msg טקסט המסר הסודי שיוצפן בתוך המדיה.
+     * @param username שם המשתמש לשמירה ביומן (Log).
+     * @param embedTaskCallback פונקציית התגובה שתעודכן בסוף התהליך.
      */
     public void embedMsg(byte[] fileBytes, String mimeType, String msg, String username, EmbedTaskCallback embedTaskCallback) 
     {
+        // יצירת Thread חדש כדי למנוע Blocked UI. אלגוריתמים כמו F5 דורשים זמן חישוב (CPU bound).
         StgnoTask = new Thread(() -> 
         {
             byte[] currentFileBytes = fileBytes;
@@ -91,7 +100,9 @@ public class StgnoService
 
             try 
             {
-                // 1. ניתוב עבור תמונות
+                // שלב 1: ולידציה דינמית והמרת קבצים (Graceful Degradation).
+                // אם המשתמש העלה תמונה שאינה נתמכת ישירות על ידי האלגוריתמים (למשל WebP או GIF),
+                // המערכת לא קורסת, אלא ממירה אותה אוטומטית ל-PNG הנתמך על ידי PVD.
                 if (currentMimeType.startsWith("image/")) {
                     if (!checkValid(currentMimeType, "image")) 
                     {
@@ -100,7 +111,7 @@ public class StgnoService
                         currentMimeType = "image/png";
                     }
                 } 
-                // 2. ניתוב עבור קבצי שמע
+                // כנ"ל לגבי שמע: המרה אוטומטית של פורמטים לא נתמכים ל-WAV עבור אלגוריתם DSSS.
                 else if (currentMimeType.startsWith("audio/")) 
                 {
                     if (!checkValid(currentMimeType, "audio")) 
@@ -110,25 +121,23 @@ public class StgnoService
                         currentMimeType = "audio/wav";
                     }
                 } 
-                // 3. סוג קובץ שאינו נתמך כלל (למשל PDF, TXT)
+                // חסימת קבצים שאינם קשורים לעיבוד אותות או פיקסלים (כמו PDF או DOCX).
                 else 
                 {
                     System.err.println("שגיאה: הקובץ אינו תמונה ואינו שמע. לא ניתן להטמיע.");
                     embedTaskCallback.onComplete(false, null);
-                    return; // עצירת התהליך
+                    return; // יציאה מוקדמת למניעת בזבוז משאבים
                 }
 
-                // המשך ביצוע ההטמעה...
-
-                // 4. ביצוע ההטמעה בפועל לאחר שווידאנו שהקובץ תקין/הומר
+                // שלב 2: ניתוב לאלגוריתם ההטמעה וביצוע ההצפנה.
                 byte[] resultBytes = embed(currentFileBytes, currentMimeType, msg);
                 
+                // שלב 3: טיפול בתוצאות והפעלת פונקציות החזרה.
                 if (resultBytes != null) 
                 {
                     saveToHistory(username, "Embed", currentMimeType, resultBytes); 
                     embedTaskCallback.onComplete(true, resultBytes);
                 } 
-                
                 else 
                 {
                     embedTaskCallback.onComplete(false, null);
@@ -139,7 +148,7 @@ public class StgnoService
             {
                 System.err.println("שגיאה במהלך תהליך ההטמעה: " + e.getMessage());
                 e.printStackTrace();
-                embedTaskCallback.onComplete(false, null);
+                embedTaskCallback.onComplete(false, null); // הודעת כשלון במקרה של זריקת חריגה
             }
         });
         
@@ -147,8 +156,8 @@ public class StgnoService
     }
 
     /**
-     * פונקציית נתב (Router) להטמעה.
-     * בודקת את סוג הקובץ וקוראת לשירות האלגוריתם המתאים.
+     * נתב פנימי (Internal Router).
+     * מנתב את הבקשה לשירות הסטגנוגרפיה המדויק על בסיס חתימת הפורמט של הקובץ.
      */
     private byte[] embed(byte[] fileBytes, String mimeType, String msg) throws Exception 
     {
@@ -157,13 +166,13 @@ public class StgnoService
             case "image/jpg":
             case "image/jpeg":
                 System.out.println("f5 jpeg");
-                return embedF5(fileBytes, msg); // העברה לאלגוריתם F5
+                return embedF5(fileBytes, msg); // הטמעה במרחב התדר באמצעות F5
             case "image/png":
                 System.out.println("PVD PNG");
-                return embedPVD(fileBytes, msg); // העברה לאלגוריתם PVD
+                return embedPVD(fileBytes, msg); // הטמעה במרחב המרחבי (הפרשי פיקסלים) באמצעות PVD
             case "audio/wav":
                 System.out.println("embedDSSS");
-                return embedDSSS(fileBytes, msg); // העברה לאלגוריתם DSSS
+                return embedDSSS(fileBytes, msg); // הטמעת שמע באמצעות Direct-Sequence Spread Spectrum
             default:
                 return null;
         }
@@ -172,33 +181,32 @@ public class StgnoService
     private byte[] embedDSSS(byte[] fileBytes, String msg) 
     {
         System.out.println("embedDSSS");
-        byte[] result = dsssStegnoService.embed(fileBytes, msg);
-        return result;
+        return dsssStegnoService.embed(fileBytes, msg);
     }
 
     private byte[] embedPVD(byte[] fileBytes, String msg) throws Exception 
     {
         System.out.println("embedPVD");
-        byte[] result = pvdStegoService.embed(fileBytes, msg);
-        return result;
+        return pvdStegoService.embed(fileBytes, msg);
     }
 
     private byte[] embedF5(byte[] fileBytes, String msg) 
     {
         System.out.println("Sending to F5StegoService with message: " + msg);
-        byte[] resultBytes = f5StegoService.embed(fileBytes, msg);     
-        return resultBytes;
+        return f5StegoService.embed(fileBytes, msg);     
     }
 
-    //______________________________________פענוח______________________________________________
+    // ========================================================================
+    // מנגנון החילוץ והפענוח (Extraction Engine)
+    // ========================================================================
 
     /**
-     * פונקציה ראשית לחילוץ מסר סודי (Extract).
-     * פועלת גם היא בצורה אסינכרונית (Thread) כדי למנוע עומס על השרת.
+     * הפונקציה הראשית לחילוץ מסר סודי מתוך מדיה נגועה (Stego-object).
+     * עוטפת את תהליך הקריאה והפענוח ב-Thread נפרד.
      *
-     * @param fileBytes הקובץ שממנו יש לחלץ את המסר
-     * @param mimeType סוג הקובץ (קובע איזה אלגוריתם הפוך יופעל)
-     * @param extractTaskCallback פונקציית החזרה שתופעל כשיימצא המסר
+     * @param fileBytes המדיה הבינארית החשודה שמכילה מסר.
+     * @param mimeType סוג המדיה לניתוב לאלגוריתם הפיענוח.
+     * @param extractTaskCallback פונקציית התגובה שתקבל את המחרוזת המפוענחת.
      */
     public void extractMsg(byte[] fileBytes, String mimeType, ExtractTaskCallback extractTaskCallback) 
     {
@@ -207,39 +215,36 @@ public class StgnoService
         StgnoTask = new Thread(() -> {
             System.out.println("Enter Thread ExtractMsg");
            
-            // ולידציה של סוג הקובץ
+            // ולידציה קשיחה למניעת קריסות (Null Pointer / Unsupported Format) באלגוריתמים
             if(checkValid(mimeType, "image") || checkValid(mimeType, "audio")) 
             {
                 String msg = null;
                 try 
                 {
-                    // קריאה לפונקציית הניתוב של החילוץ
                     msg = extract(fileBytes, mimeType);
                 } 
-                
                 catch (Exception e) 
                 {
                     e.printStackTrace();
                 }
                 
-                System.out.println(msg);
-                // הפעלת ה-Callback עם המסר שחולץ
+                System.out.println("Extracted message: " + msg);
                 extractTaskCallback.onComplete(true, msg);
             } 
-            
             else 
+            {
+                // קריאה ל-Callback עם כשל במקרה של קובץ לא חוקי
                 extractTaskCallback.onComplete(false, null);
+            }
             
         });
 
-        // הרצת תהליך החילוץ ברקע
         StgnoTask.start();
         System.out.println("the task extractMsg & Thread is end");
     }
 
     /**
-     * פונקציית נתב (Router) לחילוץ.
-     * בודקת את סוג הקובץ וקוראת לאלגוריתם הפיענוח המתאים.
+     * נתב פנימי לחילוץ (Extraction Router).
      */
     private String extract(byte[] fileBytes, String mimeType) throws Exception 
     {
@@ -247,12 +252,13 @@ public class StgnoService
         {
             case "image/jpg":
             case "image/jpeg":
-                System.out.println("f5 jpeg");
+                System.out.println("f5 jpeg extraction");
                 return extractF5(fileBytes);
             case "image/png":
-                System.out.println("PVD PNG");
+                System.out.println("PVD PNG extraction");
                 return extractPVD(fileBytes);
             case "audio/wav":
+                System.out.println("DSSS WAV extraction");
                 return extractDSSS(fileBytes);
             default:
                 return null;
@@ -261,50 +267,49 @@ public class StgnoService
    
     private String extractDSSS(byte[] fileBytes) 
     {
-        String result = dsssStegnoService.extract(fileBytes);
-        return result;
+        return dsssStegnoService.extract(fileBytes);
     }
 
     private String extractPVD(byte[] fileBytes) throws Exception 
     {
         System.out.println("Sending to PVDStegoService for extraction");
-        String result = pvdStegoService.extract(fileBytes);
-        return result;    
+        return pvdStegoService.extract(fileBytes);    
     }
 
     private String extractF5(byte[] fileBytes) 
     {
         System.out.println("Sending to F5StegoService for extraction");
-        String result = f5StegoService.extract(fileBytes);
-        return result;
+        return f5StegoService.extract(fileBytes);
     }
 
-    //_________________________________________פונקציות עזר_________________________________________
+    // ========================================================================
+    // פונקציות עזר (Utilities)
+    // ========================================================================
     
     /**
-     * פונקציית ולידציה אחודה.
-     * מקבלת את סוג הקובץ המקורי ואת הקטגוריה המבוקשת, 
-     * ובודקת האם הוא נתמך ישירות על ידי האלגוריתמים שלנו (ללא המרה).
+     * פונקציית ולידציה.
+     * בודקת האם סוג הקובץ והפורמט נתמכים באופן טבעי (Natively) על ידי המערכת.
+     * משמשת את שכבת הלוגיקה כדי להחליט אם יש צורך להפעיל את ה-ConvertService.
      *
-     * @param mimeType סוג הקובץ המקורי (למשל: "image/heic", "audio/mp3", "image/png")
-     * @param fileType קטגוריית הבדיקה ("image" או "audio")
-     * @return true אם נתמך ישירות, false אם דורש המרה או לא חוקי
+     * @param mimeType ה-MIME Type לבדיקה (למשל "image/jpeg").
+     * @param fileType קטגוריית על ("image" או "audio").
+     * @return true אם נתמך, false אחרת.
      */
     public boolean checkValid(String mimeType, String fileType) 
     {
         if (mimeType == null) 
             return false;
 
-        // בדיקה ממוקדת עבור תמונות
         if (fileType.equals("image") && mimeType.startsWith("image/")) 
         {
+            // המערכת תומכת באופן טבעי בפורמטים מסוג PNG ו-JPEG
             return mimeType.equals("image/png") 
                 || mimeType.equals("image/jpg") 
                 || mimeType.equals("image/jpeg");
         }
         
-        // בדיקה ממוקדת עבור קבצי שמע
         if (fileType.equals("audio") && mimeType.startsWith("audio/")) {
+            // המערכת תומכת באופן טבעי בקבצי שמע לא דחוסים (WAV)
             return mimeType.equals("audio/wav");
         }
 
