@@ -1,0 +1,29 @@
+@startuml
+skinparam defaultFontName Arial
+skinparam direction top to bottom
+
+package "משתמשים שאינם מחוברים (Guests)" #LightGray {
+    rectangle "LoginView\nמסך התחברות" as login #White
+    rectangle "RegisterView\nמסך הרשמה" as register #White
+}
+
+package "משתמשים מחוברים בלבד (Logged-in Users)" #LightCyan {
+    rectangle "MainLayout\nסרגל ניווט עליון (תפריט ראשי)" as main #White
+    
+    rectangle "StgnoView\nמסך הטמעה וחילוץ (עבודה)" as stgno #White
+    rectangle "InboxView\nתיבת דואר נכנס" as inbox #White
+    rectangle "SentMessagesView\nתיבת דואר יוצא" as sent #White
+    rectangle "HistoryView\nהיסטוריית פעולות וקבצים" as history #White
+}
+
+' הניווט הפנימי נשאר אנכי
+login <--> register : ניווט הלוך ושוב
+
+' השינוי כאן: חץ עם קו אחד מציב את הקופסאות באותו הגובה (אחת ליד השנייה)
+login -> main : אימות מוצלח (Session נוצר)
+
+main --> stgno : ניתוב ברירת מחדל / בתפריט
+main --> inbox : בחירה בתפריט העליון
+main --> sent : בחירה בתפריט העליון
+main --> history : בחירה בתפריט העליון
+@enduml

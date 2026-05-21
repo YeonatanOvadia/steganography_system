@@ -123,6 +123,8 @@ public class StgnoView extends VerticalLayout implements BeforeEnterObserver
         msgField.setPlaceholder("Enter your secret message here...");
         msgField.setClearButtonVisible(true);
         msgField.setWidthFull();
+
+        msgField.setHelperText("מגבלת מסר סודי: עד 65,535 תווים (כ-65KB)");
     }
 
     /**
@@ -148,7 +150,13 @@ public class StgnoView extends VerticalLayout implements BeforeEnterObserver
      */
     private VerticalLayout buildMainCard(HorizontalLayout buttonsLayout) 
     {
-        VerticalLayout card = new VerticalLayout(upload, msgField, buttonsLayout);
+        Span uploadHint = new Span("💡 פורמטים נתמכים: PNG, JPG, WAV | רזולוציה מרבית: 2000x2000 | מקסימום 15MB");
+        uploadHint.getStyle()
+                .set("font-size", "13px")
+                .set("color", "var(--lumo-secondary-text-color)") // משתמש בצבע האפור הסטנדרטי של Vaadin
+                .set("text-align", "center");
+
+        VerticalLayout card = new VerticalLayout(upload, msgField, buttonsLayout, uploadHint);
         card.setAlignItems(Alignment.CENTER);
         card.setMaxWidth("500px");
         

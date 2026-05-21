@@ -47,9 +47,9 @@ public class MainLayout extends AppLayout
     private void createHeader() 
     {
         // עיצוב הלוגו שיוצג קבוע בצד שמאל של התפריט העליון
-        H1 logo = new H1("StegoSystem");
+        H1 logo = new H1("StegnoMail");
         logo.getStyle().set("font-size", "var(--lumo-font-size-l)")
-              .set("margin", "0").set("padding-left", "16px");
+              .set("margin", "0").set("padding-left", "15px");
 
         // בדיקת בקרת גישה (Access Control): שליפת אובייקט המשתמש מתוך ה-Session המנוהל של השרת
         User user = (User) VaadinSession.getCurrent().getAttribute("user");
@@ -70,7 +70,6 @@ public class MainLayout extends AppLayout
             Button navHome = new Button("דף הבית", e -> UI.getCurrent().navigate(HomeView.class));
             Button navStgno = new Button("הצפנה וחילוץ", e -> UI.getCurrent().navigate(StgnoView.class));
             Button navHistory = new Button("היסטוריית קבצים", e -> UI.getCurrent().navigate(HistoryView.class));
-            Button navUsers = new Button("ניהול משתמשים", e -> UI.getCurrent().navigate(UserView.class));
             Button navInbox = new Button("דואר נכנס", e -> UI.getCurrent().navigate(InboxView.class));
             Button navSent = new Button("דואר יוצא", e -> UI.getCurrent().navigate(SentMessagesView.class));
 
@@ -79,12 +78,11 @@ public class MainLayout extends AppLayout
             navHome.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             navStgno.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             navHistory.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            navUsers.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             navInbox.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
             navSent.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
             // איגוד כל כפתורי הניווט יחד לפאנל אופקי אחד עם רווחים (Spacing) מובנים
-            HorizontalLayout navigationMenu = new HorizontalLayout(navStgno, navHistory, navUsers, navInbox, navSent, navHome);
+            HorizontalLayout navigationMenu = new HorizontalLayout(navStgno, navHistory, navInbox, navSent, navHome);
             navigationMenu.setSpacing(true);
 
             // כפתור התנתקות מנוהל (Managed Logout)

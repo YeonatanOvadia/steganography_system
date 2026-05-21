@@ -3,29 +3,22 @@ package yeonatano.steganography_system.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
-import com.vaadin.flow.component.contextmenu.ContextMenu;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextField;
-import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinSession;
-import com.vaadin.flow.server.streams.UploadHandler;
 import yeonatano.steganography_system.datamodels.Message;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.MessageService;
 import yeonatano.steganography_system.services.StgnoService;
 
-import java.io.File;
-import java.util.Base64;
 
 /**
  * תצוגת "תיבת דואר נכנס" (Inbox).
@@ -133,7 +126,7 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
         textDialog.setWidth("400px"); // רוחב שנוח לקריאה
         
         // שימוש ב-TextArea לקריאה בלבד מאפשר גלילה נוחה במקרה של מגילות טקסט
-        com.vaadin.flow.component.textfield.TextArea textArea = new com.vaadin.flow.component.textfield.TextArea();
+        TextArea textArea = new TextArea();
         textArea.setValue(fullText);
         textArea.setReadOnly(true);
         textArea.setWidthFull();

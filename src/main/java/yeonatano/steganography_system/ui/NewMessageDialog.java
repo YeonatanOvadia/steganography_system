@@ -5,6 +5,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.Notification.Position;
 import com.vaadin.flow.component.notification.NotificationVariant;
@@ -51,6 +52,7 @@ public class NewMessageDialog extends Dialog
         
         Checkbox embedCheckbox = new Checkbox("האם להטמיע מסר סודי?");
         TextField secretField = new TextField("המסר הסודי");
+        secretField.setHelperText("מגבלת מסר סודי: עד 65,535 תווים");
         
         secretField.setVisible(false);
         embedCheckbox.addValueChangeListener(e -> secretField.setVisible(e.getValue()));
@@ -66,7 +68,14 @@ public class NewMessageDialog extends Dialog
         }));
 
         uploadComponent.setMaxFiles(1);
+        uploadComponent.setMaxFileSize(15 * 1024 * 1024); // 15MB
         
+
+        Span uploadHint = new Span("💡 פורמטים מומלצים להטמעה: PNG, JPG, WAV | מקסימום 15MB");
+        uploadHint.getStyle()
+                .set("font-size", "12px")
+                .set("color", "var(--lumo-secondary-text-color)");
+
         Button sendButton = new Button("שלח", e -> 
         {
             UI currentUI = UI.getCurrent(); 
@@ -159,7 +168,7 @@ public class NewMessageDialog extends Dialog
         
         sendButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        VerticalLayout layout = new VerticalLayout(toField, bodyField, uploadComponent, embedCheckbox, secretField);
+        VerticalLayout layout = new VerticalLayout(toField, bodyField, uploadHint, uploadComponent, embedCheckbox, secretField);
         add(layout);
         getFooter().add(sendButton);
     }

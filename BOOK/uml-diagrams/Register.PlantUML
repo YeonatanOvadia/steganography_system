@@ -1,0 +1,25 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(RegisterView)" as UI
+participant "Logic Layer\n(UserService)" as Logic
+database "Database\n(UserRepository)" as DB
+
+User -> UI : 1. Enter details (Username, Password)
+activate UI
+UI -> Logic : 2. Registration Request
+activate Logic
+Logic -> DB : 3. Check if Username exists
+activate DB
+DB --> Logic : 4. Username is available
+deactivate DB
+Logic -> Logic : 5. Hash Password (Security)
+Logic -> DB : 6. Save new User Object
+activate DB
+DB --> Logic : 7. Confirm Save
+deactivate DB
+Logic --> UI : 8. Registration Success
+deactivate Logic
+UI --> User : 9. Show Success & Redirect to Login
+deactivate UI
+@enduml

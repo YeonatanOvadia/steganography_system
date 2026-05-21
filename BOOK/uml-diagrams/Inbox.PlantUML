@@ -1,0 +1,31 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(InboxView)" as UI
+participant "Logic Layer\n(MessageService)" as Logic
+database "Database\n(MongoDB)" as DB
+
+User -> UI : 1. Navigate to Inbox
+activate UI
+UI -> Logic : 2. getMyInbox(Username)
+activate Logic
+Logic -> DB : 3. Query: findMessagesByReceiver
+activate DB
+DB --> Logic : 4. Return List of Messages
+deactivate DB
+Logic --> UI : 5. Return Messages Data
+deactivate Logic
+UI --> User : 6. Display Messages in Grid
+
+User -> UI : 7. Click "Show Media" (MediaPreviewButton)
+UI -> Logic : 8. getFileById(FileID) (Async Thread)
+activate Logic
+Logic -> DB : 9. Fetch Binary File Data
+activate DB
+DB --> Logic : 10. Return Binary Data
+deactivate DB
+Logic --> UI : 11. Return File
+deactivate Logic
+UI --> User : 12. Open Media Player Dialog
+deactivate UI
+@enduml

@@ -1,0 +1,38 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+actor "User" as user
+
+rectangle "Steganography System" {
+    
+    usecase "Register" as UC1
+    note right of UC1 : רישום למערכת\nInput Details
+
+    usecase "Login" as UC2
+    note right of UC2 : התחברות\nUsername & Password
+
+    usecase "Embed Message" as UC3
+    note right of UC3 : הטמעת מסר\nUpload File & Input Text
+
+    usecase "Extract Message" as UC4
+    note right of UC4 : חילוץ מסר\nUpload File OR Right-Click Extract
+    
+    usecase "Send Message" as UC5
+    note right of UC5 : דואר יוצא\nSelect Recipient & Send File
+    
+    usecase "View Inbox" as UC6
+    note right of UC6 : דואר נכנס\nPreview, Extract, Download & Delete
+
+    usecase "View History" as UC7
+    note right of UC7 : היסטוריית פעולות\nManage, Restore & Soft Delete
+}
+
+user --> UC1
+user --> UC2
+user --> UC3
+user --> UC4
+user --> UC5
+user --> UC6
+user --> UC7
+
+@enduml

@@ -3,7 +3,7 @@ package yeonatano.steganography_system.services;
 import org.springframework.stereotype.Service;
 
 import yeonatano.steganography_system.datamodels.Files;
-import yeonatano.steganography_system.repositories.StgnoRepository;
+import yeonatano.steganography_system.repositories.FilesRepository;
 
 /**
  * מחלקת השירות המרכזית (Facade Pattern) לניהול פעולות הסטגנוגרפיה במערכת.
@@ -36,7 +36,7 @@ public class StgnoService
     }
 
     // רפוזיטורי לשמירת תיעוד של הפעולות (Audit Trail) במסד הנתונים
-    private StgnoRepository stgnoRepository;
+    private FilesRepository filesRepository;
     
     // שירותי אלגוריתמים ספציפיים (Strategy-like structure)
     private F5StegoService f5StegoService;       // לטיפול בקבצי JPEG/JPG
@@ -53,9 +53,9 @@ public class StgnoService
      * בנאי המחלקה. מנצל את מנגנון ה-IoC (Inversion of Control) של Spring 
      * לצורך הזרקת תלויות (Dependency Injection) של כלל שירותי הליבה והרפוזיטורי.
      */
-    public StgnoService(StgnoRepository stgnoRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService, PVDStegoService pvdStegoService, ConvertService convertService) 
+    public StgnoService(FilesRepository filesRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService, PVDStegoService pvdStegoService, ConvertService convertService) 
     {
-        this.stgnoRepository = stgnoRepository;
+        this.filesRepository = filesRepository;
         this.f5StegoService = f5StegoService;
         this.dsssStegnoService = dsssStegnoService;
         this.pvdStegoService = pvdStegoService;
@@ -73,7 +73,7 @@ public class StgnoService
     public void saveToHistory(String userId, String action, String type, byte[] data) 
     {
         Files stegoEntry = new Files(userId, action, type, data);
-        stgnoRepository.save(stegoEntry);
+        filesRepository.save(stegoEntry);
     }
 
     // ========================================================================

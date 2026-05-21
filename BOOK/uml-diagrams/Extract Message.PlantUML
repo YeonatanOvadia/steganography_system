@@ -1,0 +1,21 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(StgnoView/MediaPreview)" as UI
+participant "Logic Layer\n(StgnoService)" as Logic
+participant "Engine\n(Algorithm Core)" as Engine
+
+User -> UI : 1. Request Extraction (Upload / Right-Click)
+activate UI
+UI -> Logic : 2. Send Stego-File Stream
+activate Logic
+Logic -> Engine : 3. Start Scanning File
+activate Engine
+Engine -> Engine : 4. Read Header & Extract Bits (UTF-8)
+Engine --> Logic : 5. Return Secret String
+deactivate Engine
+Logic --> UI : 6. Return Text
+deactivate Logic
+UI --> User : 7. Display Secret Text in Dialog
+deactivate UI
+@enduml

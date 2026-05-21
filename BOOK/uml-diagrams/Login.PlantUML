@@ -1,0 +1,21 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(LoginView)" as UI
+participant "Logic Layer\n(UserService)" as Logic
+database "Database\n(UserRepository)" as DB
+
+User -> UI : 1. Enter Username & Password
+activate UI
+UI -> Logic : 2. Authentication Request
+activate Logic
+Logic -> DB : 3. Find User by Username
+activate DB
+DB --> Logic : 4. Return User Object (incl. Hashed Password)
+deactivate DB
+Logic -> Logic : 5. Validate Password Hash & Create Secure Session
+Logic --> UI : 6. Auth Success
+deactivate Logic
+UI --> User : 7. Redirect to HomeView / Dashboard
+deactivate UI
+@enduml

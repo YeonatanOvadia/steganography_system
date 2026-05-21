@@ -1,0 +1,33 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(HistoryView)" as UI
+participant "Logic Layer\n(HistoryService)" as Logic
+database "Database\n(FilesRepository)" as DB
+
+User -> UI : 1. Navigate to History
+activate UI
+UI -> Logic : 2. getActiveUserHistory(Username)
+activate Logic
+Logic -> DB : 3. Fetch files where isDeleted=false
+activate DB
+DB --> Logic : 4. Return active files
+deactivate DB
+Logic --> UI : 5. Return List of Files
+deactivate Logic
+UI --> User : 6. Display Files in Grid
+        
+User -> UI : 7. Click "Delete"
+UI --> User : 8. Show Confirmation Dialog
+User -> UI : 9. Confirm Delete
+UI -> Logic : 10. softDeleteFile(FileID) (Background Thread)
+activate Logic
+Logic -> DB : 11. Update DB: set isDeleted = true
+activate DB
+DB --> Logic : 12. Confirm Update
+deactivate DB
+Logic --> UI : 13. Return Success
+deactivate Logic
+UI --> User : 14. Update UI: Remove Row & Show Notification
+deactivate UI
+@enduml

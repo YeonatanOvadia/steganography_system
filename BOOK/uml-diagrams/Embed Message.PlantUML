@@ -1,0 +1,39 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(StgnoView)" as UI
+participant "Logic Layer\n(StgnoService)" as Logic
+participant "Conversion\n(ConvertService)" as Converter
+participant "External API" as API
+participant "Engine\n(PVD/F5/DSSS)" as Engine
+database "Database\n(FilesRepository)" as DB
+
+User -> UI : 1. Upload File & Secret Text
+activate UI
+UI -> Logic : 2. Send Data Stream & Text
+activate Logic
+
+alt File format requires conversion
+    Logic -> Converter : 3. Request Format Conversion
+    activate Converter
+    Converter -> API : 4. Call Conversion API
+    activate API
+    API --> Converter : 5. Return Converted File
+    deactivate API
+    Converter --> Logic : 6. Return Supported Format
+    deactivate Converter
+end
+
+Logic -> Engine : 7. Route to Algorithm by Format
+activate Engine
+Engine --> Logic : 8. Return Stego-Object Stream
+deactivate Engine
+Logic -> DB : 9. Save Binary Data (Cloud)
+activate DB
+DB --> Logic : 10. Confirm Save
+deactivate DB
+Logic --> UI : 11. Return Result
+deactivate Logic
+UI --> User : 12. Display Success & Download Link
+deactivate UI
+@enduml

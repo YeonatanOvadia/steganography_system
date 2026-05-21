@@ -1,0 +1,14 @@
+@startuml
+skinparam classAttributeIconSize 0
+class User {
+  - String username
+  - String password
+  + User()
+  + User(username: String, password: String)
+  + getUsername(): String
+  + setUsername(username: String): void
+  + getPassword(): String
+  + setPassword(password: String): void
+  + toString(): String
+}
+@enduml

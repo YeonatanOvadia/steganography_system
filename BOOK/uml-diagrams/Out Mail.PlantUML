@@ -1,0 +1,24 @@
+@startuml
+skinparam maxMessageSize 150
+actor User
+participant "UI Layer\n(NewMessageDialog)" as UI
+participant "Logic Layer\n(MessageService)" as Logic
+database "Database\n(MongoDB)" as DB
+
+User -> UI : 1. Select Recipient, Text & Attach File
+activate UI
+UI -> Logic : 2. Create Message Request
+activate Logic
+Logic -> DB : 3. Save Attached File (FilesRepository)
+activate DB
+DB --> Logic : 4. Return unique FileID
+deactivate DB
+Logic -> DB : 5. Save Message Object with FileID (MessageRepository)
+activate DB
+DB --> Logic : 6. Confirm Save
+deactivate DB
+Logic --> UI : 7. Return Success
+deactivate Logic
+UI --> User : 8. Display Success Notification & Refresh Grid
+deactivate UI
+@enduml
