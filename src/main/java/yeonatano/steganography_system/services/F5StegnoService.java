@@ -2,7 +2,7 @@ package yeonatano.steganography_system.services;
 
 import org.springframework.stereotype.Service;
 
-import yeonatano.steganography_system.utilities.F5Utility;
+import yeonatano.steganography_system.utilities.F5Utils;
 import yeonatano.steganography_system.utilities.QDCT.Decomposer;
 import yeonatano.steganography_system.utilities.QDCT.F5JpegReader;
 import yeonatano.steganography_system.utilities.QDCT.F5JpegWriter;
@@ -17,7 +17,7 @@ import java.util.List;
  * תוך שימוש בקידוד מטריצה (Matrix Encoding) כדי למזער את הפגיעה באיכות התמונה.
  */
 @Service
-public class F5StegoService 
+public class F5StegnoService 
 {
 
     // private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -48,13 +48,13 @@ public class F5StegoService
 
             // 1. מכינים את ה-Header (32 ביטים של האורך)
             int messageLength = messageBytes.length;
-            int[] headerBits = F5Utility.getHeaderBits(messageLength);
+            int[] headerBits = F5Utils.getHeaderBits(messageLength);
             
             // 2. מכינים את הביטים של ההודעה עצמה
-            int[] messageBits = F5Utility.bytesToBits(messageBytes);
+            int[] messageBits = F5Utils.bytesToBits(messageBytes);
             
             // 3. משרשרים אותם לרכבת אחת ארוכה המוכנה להטמעה
-            int[] bitsToEmbed = F5Utility.concatArrays(headerBits, messageBits);
+            int[] bitsToEmbed = F5Utils.concatArrays(headerBits, messageBits);
             
             System.out.println("Message length: " + messageLength + " bytes");
             System.out.println("Total bits to embed: " + bitsToEmbed.length + " (32 header + " + messageBits.length + " message)");
@@ -120,9 +120,9 @@ public class F5StegoService
                 b2 = DCTlist.get(IdxInDCT_List[1]);
                 b3 = DCTlist.get(IdxInDCT_List[2]);
 
-                bLsb[0] = F5Utility.getLSB(Math.abs(b1));
-                bLsb[1] = F5Utility.getLSB(Math.abs(b2));
-                bLsb[2] = F5Utility.getLSB(Math.abs(b3));
+                bLsb[0] = F5Utils.getLSB(Math.abs(b1));
+                bLsb[1] = F5Utils.getLSB(Math.abs(b2));
+                bLsb[2] = F5Utils.getLSB(Math.abs(b3));
 
                 h[0] = bLsb[0] ^ bLsb[2];
                 h[1] = bLsb[1] ^ bLsb[2];
@@ -247,9 +247,9 @@ public class F5StegoService
 
             // חילוץ ה-LSB למערך
             int[] bLsb = new int[3];
-            bLsb[0] = F5Utility.getLSB(Math.abs(b1));
-            bLsb[1] = F5Utility.getLSB(Math.abs(b2));
-            bLsb[2] = F5Utility.getLSB(Math.abs(b3));
+            bLsb[0] = F5Utils.getLSB(Math.abs(b1));
+            bLsb[1] = F5Utils.getLSB(Math.abs(b2));
+            bLsb[2] = F5Utils.getLSB(Math.abs(b3));
 
             // חישוב שני הביטים שלנו למערך h (זוגיות)
             int[] h = new int[2];
@@ -304,9 +304,9 @@ public class F5StegoService
 
             // ג. חילוץ LSB
             int[] bLsb = new int[3];
-            bLsb[0] = F5Utility.getLSB(Math.abs(b1));
-            bLsb[1] = F5Utility.getLSB(Math.abs(b2));
-            bLsb[2] = F5Utility.getLSB(Math.abs(b3));
+            bLsb[0] = F5Utils.getLSB(Math.abs(b1));
+            bLsb[1] = F5Utils.getLSB(Math.abs(b2));
+            bLsb[2] = F5Utils.getLSB(Math.abs(b3));
 
             // ד. חישוב ה-Hash (זוגיות) - אלו הם ביטי המסר שלנו!
             int[] h = new int[2];
@@ -325,7 +325,7 @@ public class F5StegoService
         }
 
         // 4. המרת מערך הביטים חזרה לטקסט קריא
-        byte[] messageBytes = F5Utility.bitsToBytes(extractedBits);
+        byte[] messageBytes = F5Utils.bitsToBytes(extractedBits);
         String hiddenMessage = new String(messageBytes, StandardCharsets.UTF_8);
 
         System.out.println("\n--- Extraction Complete ---");

@@ -36,7 +36,8 @@ public class LoginView extends VerticalLayout
      *
      * @param userService שירות המשתמשים (Singleton) המוזרק על ידי קונטיינר ה-IoC של Spring.
      */
-    public LoginView(UserService userService) {
+    public LoginView(UserService userService) 
+    {
         this.userService = userService;
         
         // הגדרות עיצוב למסך הראשי (Flexbox)

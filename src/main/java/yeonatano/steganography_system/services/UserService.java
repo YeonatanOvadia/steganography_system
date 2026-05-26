@@ -22,10 +22,10 @@ public class UserService
 
     // שימוש בממשק PasswordEncoder (בדרך כלל ממומש כ-Bcrypt) כדי להבטיח שסיסמאות 
     // נשמרות כגיבוב (Hash) ולא כטקסט גלוי (Plain text), למניעת חשיפה במקרה של פריצה למסד הנתונים.
-    private final PasswordEncoder passwordEncoder;
+    private PasswordEncoder passwordEncoder;
     
     // אובייקט הגישה לנתונים (DAO/Repository) המשמש לביצוע פעולות CRUD מול מסד הנתונים.
-    private final UserRepository userRepository;
+    private UserRepository userRepository;
 
     /**
      * בנאי המחלקה - מבצע הזרקת תלויות (Constructor Dependency Injection).

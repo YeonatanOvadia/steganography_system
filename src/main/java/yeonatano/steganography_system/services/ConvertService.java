@@ -3,6 +3,7 @@ package yeonatano.steganography_system.services;
 import okhttp3.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -11,21 +12,24 @@ import java.util.concurrent.TimeUnit;
 /**
  * שירות המרת קבצים (File Conversion Service) המשתמש ב-API של CloudConvert.
  * שירות זה נועד לפתור את בעיית חוסר התאימות (Incompatibility) של פורמטים מסוימים לאלגוריתמי הסטגנוגרפיה.
- * 
- * 💡 דגש ארכיטקטוני: השירות מתוכנן לעבוד במודל In-Memory בלבד.
+ * * 💡 דגש ארכיטקטוני: השירות מתוכנן לעבוד במודל In-Memory בלבד.
  * כלומר, הוא מקבל, משדר, ומחזיר מערכי בייטים (byte[]) מבלי לכתוב או לקרוא קבצים פיזיים (I/O) 
  * מהדיסק הקשיח של השרת. זה מונע יצירת "קובצי זבל" ומשפר משמעותית את זמן התגובה ואבטחת המידע.
  */
+// @Service מסמן ל-Spring לנהל את המחלקה הזו כמופע יחיד (Singleton) ולהזריק אותה איפה שצריך.
 @Service
 public class ConvertService 
 {
 
     // מפתח אימות (Bearer Token) להתחברות מאובטחת מול שרתי CloudConvert.
     // הערה להגנה: בפרודקשן אמיתי מפתח כזה נשמר כמשתנה סביבה (Environment Variable) או ב-application.properties.
-    private static final String API_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiMGE1Y2IxMzg4NDI4ZmM5MzhjZjk0ZWE0NGY5ODc3ODI2OWEwZDBlNDZjMGE5OTFiMDZjZTcyODhiZGRjYzFiMWM5ZDYyOTQ4N2MwYTE5MmYiLCJpYXQiOjE3Nzg3NzYxNTAuNzIwMjg5LCJuYmYiOjE3Nzg3NzYxNTAuNzIwMjksImV4cCI6NDkzNDQ0OTc1MC43MTQxNzIsInN1YiI6Ijc1NTU1OTYyIiwic2NvcGVzIjpbInVzZXIud3JpdGUiLCJ1c2VyLnJlYWQiLCJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIiwid2ViaG9vay5yZWFkIiwid2ViaG9vay53cml0ZSIsInByZXNldC5yZWFkIiwicHJlc2V0LndyaXRlIl19.nSPmVqgbisqVbSr6y_546Cvm16W2eEz3ngY6PK_WhYTEHpXnUk5rttrxHFI2fWn3vUwI1YyP9tABeXJe0oFXot-PYWSMr7SwK3OndtRzHrhYzvhG0sydcA0Xsv83oecsa87eF3GOTY-iXmWRJ-JzHNn1QtNPyrq13Ie1Eb1BKoH5KcvaPZuwycHUVMSomm_xV2N5-Z3PNnVq9qKnAfWKH3fCJkn2w6UQUd0GqHGDZJETpCJT-xqW6bja5BHvKWomaFH4nhNZFSve1Vop2AAxNmaRlVhTDnBBsvUymdfSC0hOKJvoAOoMY6y_pNskZDYyBFBRRCfa2jwiezWW1R4v3dM172Y0JpMDkSvd9lymqEUvT-6mxd7TT7sWEvNiUDUNxmwbei3PtgJ8WxGfUXQzsZhlxlvBJKorK68s9hYJf9Ojk6B8mqmj7dEFc2Wb8HefI1Q4mfl4HdmfiZiyJZUwpzo4HIUO1fgTJ9dEtQjiWXL3ortjgbkVGkqXvmjit-XT3fQueT2I9WGEnKhg18n5T-hxLcC6EejgI73g3FWqv01SLKbNIF-TWCLzsj1VYchO10Hn0NsPlR-kNh-B7K2EAps8RkCCPzQIBggPBGpkI6aafbapQG89qOJOuw4FUejUS2oLlxmJiz0SG2XCtUFcQquwV7kNqwMRTDAePnVnbLU"; 
+    // למה? כדי למנוע קידוד קשיח (Hardcoding) של סודות בקוד המקור שעלול לדלוף.
+    @Value("${cloudconvert.api.key}")
+    private String API_KEY;
 
     // קליינט HTTP סינכרוני מבית Square לביצוע בקשות רשת יעילות
-    private final OkHttpClient client;
+    // למה OkHttpClient? כי הוא מנהל "בריכת חיבורים" (Connection Pool) אוטומטית ויעיל מאוד עם קבצים בינאריים.
+    private OkHttpClient client;
 
     /**
      * בנאי המחלקה - מאתחל את ה-OkHttpClient עם הגדרות Timeout מותאמות אישית.
@@ -34,7 +38,7 @@ public class ConvertService
     {
         // המרת קבצים (במיוחד קבצי שמע ווידאו) היא פעולה איטית התלויה בשרת צד-שלישי.
         // הגדלת זמן ההמתנה (Timeout) ל-60 שניות מונעת מהאפליקציה לקרוס או לזרוק שגיאת 
-        // SocketTimeoutException בטרם ההמרה הושלמה.
+        // SocketTimeoutException בטרם ההמרה הושלמה. ברירת המחדל (לרוב 10 שניות) קצרה מדי פה.
         this.client = new OkHttpClient.Builder()
                 .connectTimeout(60, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
@@ -54,7 +58,8 @@ public class ConvertService
     public byte[] convertFormat(byte[] fileData, String sourceMimeType, String targetFormat) throws Exception 
     {
         // חילוץ סיומת הקובץ מתוך ה-MIME Type (למשל מ-"image/webp" נחלץ "webp").
-        // פעולה זו הכרחית מכיוון שה-API של CloudConvert דורש סיומת קובץ תקינה כדי לפענח את המקור.
+        // למה זה הכרחי? ה-API של CloudConvert מקבל זרם ביטים, והוא חייב סיומת כדי לדעת
+        // איזה אלגוריתם (Codec) להפעיל כדי לקרוא את קובץ המקור כראוי.
         String sourceExt = "bin"; // Fallback ליתר ביטחון
         if (sourceMimeType != null && sourceMimeType.contains("/")) {
             sourceExt = sourceMimeType.substring(sourceMimeType.indexOf("/") + 1);
@@ -87,6 +92,7 @@ public class ConvertService
     private JSONObject createJob(String targetFormat) throws IOException 
     {
         // שימוש בתכונת Text Blocks (מ-Java 15) ליצירת JSON קריא ונוח לתחזוקה.
+        // למה? זה חוסך את הצורך לשרשר מחרוזות (+) ולהשתמש בתווי מילוט (\") שהופכים את הקוד למבולגן.
         // הזרקת פורמט היעד (%s) מתבצעת באופן דינמי באמצעות פונקציית formatted.
         String jsonPayload = """
             {
@@ -110,7 +116,7 @@ public class ConvertService
             }
             """.formatted(targetFormat);
 
-        // בניית בקשת HTTP POST עם JSON Payload
+        // בניית בקשת HTTP POST עם JSON Payload וסוג התוכן המתאים
         RequestBody body = RequestBody.create(jsonPayload, MediaType.get("application/json"));
         Request request = new Request.Builder()
                 .url("https://api.cloudconvert.com/v2/jobs")
@@ -118,7 +124,8 @@ public class ConvertService
                 .post(body)
                 .build();
 
-        // ביצוע הבקשה וקריאת התגובה
+        // למה "try(Response...)"? זה נקרא Try-with-resources. 
+        // זה מבטיח שהחיבור לרשת (ה-Socket) ייסגר אוטומטית בסוף הבלוק, ומונע זליגת זיכרון/משאבים (Resource Leak).
         try (Response response = client.newCall(request).execute())
         {
             if (!response.isSuccessful()) 
@@ -138,6 +145,8 @@ public class ConvertService
         String uploadUrl = form.getString("url");
         JSONObject parameters = form.getJSONObject("parameters");
 
+        // למה MultipartBody? פרוטוקול HTTP מבוסס טקסט. התקן הזה מאפשר לשלוח גם טקסט (הפרמטרים) 
+        // וגם קובץ בינארי (הבייטים) באותה בקשה, כשהוא מייצר מחיצות/גבולות (Boundaries) ביניהם.
         MultipartBody.Builder builder = new MultipartBody.Builder().setType(MultipartBody.FORM);
         
         // הזרקת כל פרמטרי ההרשאה שחזרו מהשרת לתוך הטופס
@@ -146,6 +155,7 @@ public class ConvertService
         
         // הזרקת הקובץ עצמו (fileData) בליווי שם קובץ וירטואלי וה-MIME Type שלו.
         // הגדרת סיומת נכונה (ext) היא קריטית לפענוח מוצלח על ידי המנוע של CloudConvert.
+        // application/octet-stream אומר לשרת: "זהו זרם של מידע בינארי גולמי".
         String filename = "upload_file." + ext;
         builder.addFormDataPart("file", filename,
                 RequestBody.create(fileData, MediaType.parse(mimeType != null ? mimeType : "application/octet-stream")));
@@ -169,7 +179,7 @@ public class ConvertService
      */
     private String waitForResult(String jobId) throws Exception 
     {
-        while (true) // לולאה הרצה עד לקבלת תוצאה או זריקת שגיאה
+        while (true) // לולאה הרצה עד לקבלת תוצאה או זריקת שגיאה (יישבר באמצעות return או throw)
         {
             Request request = new Request.Builder()
                     .url("https://api.cloudconvert.com/v2/jobs/" + jobId)
@@ -182,12 +192,14 @@ public class ConvertService
                 if (!response.isSuccessful()) 
                     throw new IOException("Failed to check status");
 
+                // המרת התשובה הטקסטואלית לאובייקט JSON כדי שנוכל לשלוף ממנו נתונים בקלות
                 JSONObject json = new JSONObject(response.body().string());
                 String status = json.getJSONObject("data").getString("status");
 
                 if (status.equals("finished")) 
                 {
                     // חיפוש הקישור (URL) המיוצא מתוך אובייקט ה-JSON המסועף
+                    // למה הלולאה? כי JSON מחזיר עץ נתונים, ויכולות להיות כמה משימות (tasks). אנחנו מחפשים רק את שלב הייצוא.
                     JSONArray tasks = json.getJSONObject("data").getJSONArray("tasks");
                     for (int i = 0; i < tasks.length(); i++) 
                     {
@@ -203,8 +215,9 @@ public class ConvertService
                     throw new Exception("ההמרה נכשלה בשרת CloudConvert.");
                 }
             
-                // אם המשימה בסטטוס "processing" או "waiting", מרדימים את ה-Thread
-                // ל-3 שניות כדי לא להציף את השרת בבקשות (Rate Limiting) ולנסות שוב.
+                // למה חובה להרדים (Sleep)? 
+                // אם נשאל את השרת עשרות פעמים בשנייה אם הוא סיים, ניחסם על ידי השרת (Rate Limiting) 
+                // או ניחשב כמתקפת מניעת שירות (DoS). השהייה של 3 שניות היא מרווח הגיוני וסביר.
                 Thread.sleep(3000); 
             }
         }
@@ -220,9 +233,12 @@ public class ConvertService
         {
             if (!response.isSuccessful() || response.body() == null) 
             {
-                throw new IOException("הורדת הקובץ נכשלה.");
+                throw new IOException("הורדת הקובץ נכשלה");
             }
-            // קריאת כל המידע למערך בייטים ישירות מהזרם (Stream) של התשובה.
+            // למה .bytes() כל כך קריטי פה? 
+            // זה קורא את כל המידע שמגיע מהרשת במכה אחת ישירות לתוך זיכרון ה-RAM (כמערך בייטים).
+            // זה מונע את הצורך ליצור קובץ זמני על הדיסק, מה שמשאיר אפס עקבות במערכת הפעלה 
+            // ומשפר את אבטחת המידע במערכת הסטגנוגרפיה שלך.
             return response.body().bytes();
         }
     }

@@ -16,7 +16,7 @@ import com.vaadin.flow.server.VaadinSession;
 import com.vaadin.flow.server.streams.UploadHandler;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.MessageService;
-import yeonatano.steganography_system.services.StgnoService;
+import yeonatano.steganography_system.services.StegnoService;
 
 import java.io.File;
 
@@ -27,12 +27,12 @@ import java.io.File;
 public class NewMessageDialog extends Dialog 
 {
     private final MessageService messageService;
-    private final StgnoService stegoService;
+    private final StegnoService stegoService;
     
     // הפעולה שתתבצע אחרי שההודעה נשלחה בהצלחה (למשל: רענון הטבלה)
     private final Runnable afterSendAction;
 
-    public NewMessageDialog(MessageService messageService, StgnoService stegoService, Runnable afterSendAction) 
+    public NewMessageDialog(MessageService messageService, StegnoService stegoService, Runnable afterSendAction) 
     {
         this.messageService = messageService;
         this.stegoService = stegoService;
@@ -103,6 +103,28 @@ public class NewMessageDialog extends Dialog
             String bodyText = bodyField.getValue();
             boolean doEmbed = embedCheckbox.getValue();
             String secretText = secretField.getValue();
+
+            // חיווי מהיר ראשון וסגירת החלון מיד
+            if (doEmbed) 
+            {
+                if (uploadedFile[0] == null || !uploadedFile[0].exists()) 
+                {
+                    Notification.show("שגיאה: בחרת להטמיע מסר, אך לא העלית קובץ מדיה!", 5000, Position.MIDDLE)
+                                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    return; // עצירת השליחה, החלון נשאר פתוח
+                }
+                
+                if (secretText == null || secretText.trim().isEmpty()) 
+                {
+                    secretField.setInvalid(true);
+                    secretField.setErrorMessage("חובה להזין מסר סודי");
+                    Notification.show("שגיאה: לא הזנת מסר סודי להטמעה!", 5000, Position.MIDDLE)
+                                .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                    return; // עצירת השליחה, החלון נשאר פתוח
+                }
+            }
+            secretField.setInvalid(false);
+            // --------------------------------------------------------
 
             // חיווי מהיר ראשון וסגירת החלון מיד
             Notification.show("ההודעה נשלחת ברקע...", 3000, Position.BOTTOM_START);

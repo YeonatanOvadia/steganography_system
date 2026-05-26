@@ -1,0 +1,19 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.datamodels {
+  
+  class User <<@Document(collection="Users")>> {
+    - <<@Id>> username : String
+    - password : String
+    
+    + User()
+    + User(username : String, password : String)
+    + getUsername() : String
+    + setUsername(username : String) : void
+    + getPassword() : String
+    + setPassword(password : String) : void
+    + toString() : String
+  }
+}
+@enduml

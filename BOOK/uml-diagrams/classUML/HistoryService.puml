@@ -1,0 +1,15 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  class HistoryService <<@Service>> {
+    - filesRepository : FilesRepository
+    
+    + HistoryService(filesRepository: FilesRepository)
+    + getActiveUserHistory(username: String) : List<Files>
+    + softDeleteFile(fileId: String) : void
+    + getFileData(fileId: String) : byte[]
+  }
+}
+@enduml

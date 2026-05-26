@@ -1,0 +1,16 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  class UserService <<@Service>> {
+    - passwordEncoder : PasswordEncoder
+    - userRepository : UserRepository
+    
+    + UserService(userRepository: UserRepository, passwordEncoder: PasswordEncoder)
+    + addUserToDB(user: User) : boolean
+    + authenticate(username: String, rawPassword: String) : User
+    + getAllUsers() : ArrayList<User>
+  }
+}
+@enduml

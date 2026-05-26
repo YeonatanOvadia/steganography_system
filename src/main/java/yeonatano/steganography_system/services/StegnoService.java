@@ -14,7 +14,7 @@ import yeonatano.steganography_system.repositories.FilesRepository;
  * הקידוד והפענוח הכבדות בתהליכונים (Threads), כדי למנוע חסימה (Blocking) של ממשק המשתמש.
  */
 @Service
-public class StgnoService 
+public class StegnoService 
 {
 
     /**
@@ -39,9 +39,9 @@ public class StgnoService
     private FilesRepository filesRepository;
     
     // שירותי אלגוריתמים ספציפיים (Strategy-like structure)
-    private F5StegoService f5StegoService;       // לטיפול בקבצי JPEG/JPG
+    private F5StegnoService f5StegoService;       // לטיפול בקבצי JPEG/JPG
     private DSSSStegnoService dsssStegnoService; // לטיפול בקבצי שמע WAV
-    private PVDStegoService pvdStegoService;     // לטיפול בקבצי PNG
+    private PVDStegnoService pvdStegoService;     // לטיפול בקבצי PNG
     
     // שירות המרה - מגביר את גמישות המערכת על ידי טיפול בקבצים שאינם נתמכים במקור
     private ConvertService convertService; 
@@ -53,7 +53,7 @@ public class StgnoService
      * בנאי המחלקה. מנצל את מנגנון ה-IoC (Inversion of Control) של Spring 
      * לצורך הזרקת תלויות (Dependency Injection) של כלל שירותי הליבה והרפוזיטורי.
      */
-    public StgnoService(FilesRepository filesRepository, F5StegoService f5StegoService, DSSSStegnoService dsssStegnoService, PVDStegoService pvdStegoService, ConvertService convertService) 
+    public StegnoService(FilesRepository filesRepository, F5StegnoService f5StegoService, DSSSStegnoService dsssStegnoService, PVDStegnoService pvdStegoService, ConvertService convertService) 
     {
         this.filesRepository = filesRepository;
         this.f5StegoService = f5StegoService;

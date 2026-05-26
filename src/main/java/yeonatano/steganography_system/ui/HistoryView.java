@@ -18,7 +18,7 @@ import com.vaadin.flow.server.VaadinSession;
 import yeonatano.steganography_system.datamodels.Files;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.HistoryService;
-import yeonatano.steganography_system.services.StgnoService;
+import yeonatano.steganography_system.services.StegnoService;
 
 
 /**
@@ -32,7 +32,7 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
 
     // הזרקת שירותים (Services) לגישה לנתוני היסטוריה ולשירות החילוץ האלגוריתמי
     private HistoryService historyService;
-    private StgnoService stgnoService;
+    private StegnoService stgnoService;
     
     // יצירת טבלת הנתונים. השימוש ב-false מונע יצירת עמודות אוטומטית לפי שדות המודל
     // ומאפשר לנו שליטה מוחלטת על אילו עמודות יוצגו ואיך (Custom Rendering).
@@ -44,7 +44,7 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
      * @param historyService שירות לניהול ושליפת היסטוריית הקבצים של המשתמש.
      * @param stgnoService שירות הסטגנוגרפיה המאפשר חילוץ מסרים מקבצים קיימים.
      */
-    public HistoryView(HistoryService historyService, StgnoService stgnoService) 
+    public HistoryView(HistoryService historyService, StegnoService stgnoService) 
     {
         this.historyService = historyService;
         this.stgnoService = stgnoService;

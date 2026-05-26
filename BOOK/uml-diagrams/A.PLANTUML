@@ -1,9 +1,0 @@
-@startuml
-class UserService {
-  - passwordEncoder: PasswordEncoder
-  - userRepository: UserRepository
-  + addUserToDB(user: User) : boolean
-  + authenticate(username, rawPassword) : User
-  + getAllUsers() : ArrayList<User>
-}
-@enduml

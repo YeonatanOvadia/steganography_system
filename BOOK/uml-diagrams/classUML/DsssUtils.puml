@@ -1,0 +1,28 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.utilities {
+  
+  class DsssUtils {
+    + {static} SAMPLES_PER_BIT : int = 100
+    
+    + {static} getHeaderBits(length: int) : int[]
+    + {static} bytesToBits(message: byte[]) : int[]
+    + {static} concatArrays(headerBits: int[], messageBits: int[]) : int[]
+    + {static} bitsToBytes(bits: int[]) : byte[]
+    + {static} readWavSamples(filePath: String) : AudioData
+    + {static} saveWavFile(filePath: String, audioData: AudioData) : void
+    + {static} generatePnSequence(password: String, length: int) : int[]
+    + {static} readWavSamplesFromStream(is: InputStream) : AudioData
+    + {static} saveWavFileToStream(os: OutputStream, audioData: AudioData) : void
+  }
+
+  class AudioData {
+    + samples : short[]
+    + format : AudioFormat
+    + AudioData(samples: short[], format: AudioFormat)
+  }
+
+  DsssUtils +-- AudioData
+}
+@enduml

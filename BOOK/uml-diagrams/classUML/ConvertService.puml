@@ -1,0 +1,18 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  class ConvertService <<@Service>> {
+    - {static} API_KEY : String
+    - client : OkHttpClient
+    
+    + ConvertService()
+    + convertFormat(fileData: byte[], sourceMimeType: String, targetFormat: String) : byte[]
+    - createJob(targetFormat: String) : JSONObject
+    - uploadFile(uploadTask: JSONObject, fileData: byte[], mimeType: String, ext: String) : void
+    - waitForResult(jobId: String) : String
+    - downloadFileAsBytes(downloadUrl: String) : byte[]
+  }
+}
+@enduml

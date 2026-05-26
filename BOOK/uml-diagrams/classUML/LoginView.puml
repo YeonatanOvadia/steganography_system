@@ -1,0 +1,18 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+
+  class LoginView <<@Route("login")>> {
+    - login : LoginForm
+    - userService : UserService
+    
+    + LoginView(userService: UserService)
+  }
+  
+  VerticalLayout <|-- LoginView
+}
+@enduml

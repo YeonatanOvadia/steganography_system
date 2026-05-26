@@ -1,6 +1,6 @@
 package yeonatano.steganography_system.utilities;
 
-public class F5Utility 
+public class F5Utils 
 {
 
     /**

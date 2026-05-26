@@ -6,7 +6,6 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
@@ -14,15 +13,13 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinSession;
 
 import yeonatano.steganography_system.datamodels.Message;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.MessageService;
-import yeonatano.steganography_system.services.StgnoService;
+import yeonatano.steganography_system.services.StegnoService;
 
-import java.io.ByteArrayInputStream;
 
 /**
  * תצוגת "הודעות יוצאות" של המערכת.
@@ -32,10 +29,10 @@ import java.io.ByteArrayInputStream;
 public class SentMessagesView extends VerticalLayout implements BeforeEnterObserver 
 {
     private MessageService msgService;
-    private StgnoService stgnoService;
+    private StegnoService stgnoService;
     private Grid<Message> grid = new Grid<>(Message.class, false);
 
-    public SentMessagesView(MessageService msgService, StgnoService stgnoService) 
+    public SentMessagesView(MessageService msgService, StegnoService stgnoService) 
     {
         this.msgService = msgService;
         this.stgnoService = stgnoService;

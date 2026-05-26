@@ -45,17 +45,17 @@ public class HomeView extends VerticalLayout
 
         // --- 3. בניית הטיפוגרפיה (Typography & Headers) ---
         
-        H1 mainTitle = new H1("STEGO-CORE");
+        H1 mainTitle = new H1("STEGNO-MAIL");
         // שימוש ב-Inline CSS דרך Java כדי לייצר אפקטים מתקדמים (כמו Text Shadow זוהר)
         mainTitle.getStyle()
             .set("font-family", "'Rajdhani', sans-serif")
             .set("color", "#0de314")
-            .set("text-shadow", "0 0 20px rgba(13, 227, 20, 0.5)")
+            .set("text-shadow", "1px 1px 2px rgba(0, 0, 0, 0.15)")
             .set("letter-spacing", "4px")
             .set("margin-bottom", "0")
             .set("font-size", "4rem");
 
-        Span subTitle = new Span("האמנות שבהסתרת המידע // מערכת סטגנוגרפיה מתקדמת");
+        Span subTitle = new Span("האמנות שבהסתרת המידע // מערכת מייל סטגנוגרפית מתקדמת");
         subTitle.getStyle()
             .set("color", "#555")
             .set("text-transform", "uppercase")
@@ -73,7 +73,7 @@ public class HomeView extends VerticalLayout
         // הצגת הודעת ברכה דינמית מבוססת זהות משתמש
         H3 welcomeMessage = new H3("SYSTEM ACCESSED: " + currentUsername.toUpperCase());
         welcomeMessage.getStyle()
-            .set("color", "#0de314")
+        .set("color", "#059609")
             .set("margin", "0")
             .set("font-family", "'Rajdhani', sans-serif");
         
@@ -98,15 +98,14 @@ public class HomeView extends VerticalLayout
             .set("font-size", "1.2em")
             .set("line-height", "1.7")
             .set("font-weight", "bold")
-            .set("color", "#0de314")
-            .set("border-right", "3px solid #0de314")
+            .set("color", "#059609") // ירוק כהה קריא
+            .set("border-right", "3px solid #059609")
             .set("padding-right", "15px")
             .set("margin-top", "15px")
             .set("margin-bottom", "15px");
 
-        Paragraph p3 = new Paragraph("• אין צורך בהתקנה ציוד קצה.");
-        p3.getStyle().set("font-size", "1.1em").set("line-height", "1.6").set("margin-bottom", "0").set("color", "#aaa");
-
+        Paragraph p3 = new Paragraph("מגיש: יהונתן אליעזר עובדה שנת 2026");
+        p3.getStyle().set("font-size", "1.1em").set("line-height", "1.6").set("margin-bottom", "0").set("color", "#555555"); // אפור כהה וברור
         descriptionLayout.add(p1, p2, p3);
 
         // --- 5. עיצוב המעטפת המרכזית (Glassmorphism & Background) ---
@@ -116,10 +115,10 @@ public class HomeView extends VerticalLayout
         cardContainer.setMaxWidth("800px");
         cardContainer.getStyle()
             // שימוש בנתיב יחסי לתמונת הרקע (התמונה צריכה לשבת בתיקיית src/main/resources/META-INF/resources/)
-            .set("background", "linear-gradient(rgba(10, 10, 10, 0.85), rgba(10, 10, 10, 0.85)), url('Images/background.jpg')")
+            .set("background", "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url('Images/background.jpg')")
             .set("background-size", "cover") 
             .set("background-position", "center") 
-            .set("border", "1px solid #222")
+            .set("border", "1px solid #e0e0e0") // מסגרת בהירה ועדינה
             .set("border-right", "4px solid #0de314")
             .set("border-left", "4px solid #0de314")
             .set("padding", "2.5rem")
@@ -132,7 +131,7 @@ public class HomeView extends VerticalLayout
         // --- 6. ניתוב וכפתורי פעולה (Navigation & Actions) ---
         // יצירת כפתורים באמצעות וקטורים (Vaadin Icons) ואירועי לחיצה (Click Listeners) המבצעים ניווט SPA
         
-        Button btnStgno = new Button("הצפנה וחילוץ", VaadinIcon.SHIELD.create(), e -> UI.getCurrent().navigate(StgnoView.class));
+        Button btnStgno = new Button("הצפנה וחילוץ", VaadinIcon.SHIELD.create(), e -> UI.getCurrent().navigate(StegnoView.class));
         stylePrimaryButton(btnStgno);
         btnStgno.setHeight("50px");
         btnStgno.setWidth("200px");
@@ -186,8 +185,9 @@ public class HomeView extends VerticalLayout
     private void stylePrimaryButton(Button btn) 
     {
         btn.getStyle()
-            .set("background-color", "#0de314")
-            .set("color", "#000")
+            .set("background-color", "transparent")
+            .set("color", "#059609") // החלפה לירוק בעל ניגודיות טובה על לבן
+            .set("border", "1px solid #059609")
             .set("font-weight", "bold")
             .set("border-radius", "0")
             .set("letter-spacing", "1px")

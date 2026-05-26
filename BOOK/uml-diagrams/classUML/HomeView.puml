@@ -1,0 +1,17 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+
+  class HomeView <<@Route("")>> {
+    + HomeView()
+    - stylePrimaryButton(btn: Button) : void
+    - styleSecondaryButton(btn: Button) : void
+  }
+  
+  VerticalLayout <|-- HomeView
+}
+@enduml

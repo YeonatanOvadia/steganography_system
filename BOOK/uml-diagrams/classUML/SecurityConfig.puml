@@ -1,0 +1,10 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system {
+  
+  class SecurityConfig <<@Configuration>> {
+    + passwordEncoder() : PasswordEncoder <<@Bean>>
+  }
+}
+@enduml

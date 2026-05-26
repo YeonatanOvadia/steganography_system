@@ -1,0 +1,29 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+  
+  interface BeforeEnterObserver {
+  }
+
+  class HistoryView <<@Route("history")>> {
+    - historyService : HistoryService
+    - stgnoService : StgnoService
+    - grid : Grid<Files>
+    
+    + HistoryView(historyService: HistoryService, stgnoService: StgnoService)
+    - showTimestamp() : void
+    - showMediaType() : void
+    - showDbImage() : void
+    - showDeleteColumn() : void
+    - refreshGrid() : void
+    + beforeEnter(event: BeforeEnterEvent) : void
+  }
+  
+  VerticalLayout <|-- HistoryView
+  BeforeEnterObserver <|.. HistoryView
+}
+@enduml

@@ -1,0 +1,16 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.utilities {
+  
+  class F5Utility {
+    
+    + {static} getHeaderBits(length: int) : int[]
+    + {static} bytesToBits(message: byte[]) : int[]
+    + {static} concatArrays(headerBits: int[], messageBits: int[]) : int[]
+    + {static} getLSB(value: int) : int
+    + {static} setLSB(value: int, targetBit: int) : int
+    + {static} bitsToBytes(bits: int[]) : byte[]
+  }
+}
+@enduml

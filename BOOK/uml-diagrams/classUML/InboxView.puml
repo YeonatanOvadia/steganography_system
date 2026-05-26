@@ -1,0 +1,30 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+  
+  interface BeforeEnterObserver {
+  }
+
+  class InboxView <<@Route("inbox")>> {
+    - msgService : MessageService
+    - stgnoService : StgnoService
+    - grid : Grid<Message>
+    
+    + InboxView(msgService: MessageService, stgnoService: StgnoService)
+    - showSenderColumn() : void
+    - showBodyColumn() : void
+    - showFullTextDialog(fullText: String) : void
+    - showAttachmentColumn() : void
+    - showDeleteColumn() : void
+    - refreshGrid() : void
+    + beforeEnter(event: BeforeEnterEvent) : void
+  }
+  
+  VerticalLayout <|-- InboxView
+  BeforeEnterObserver <|.. InboxView
+}
+@enduml

@@ -1,0 +1,34 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  interface EmbedTaskCallback {
+    + onComplete(isSuccess: boolean, resultBytes: byte[]) : void
+  }
+
+  interface ExtractTaskCallback {
+    + onComplete(isSuccess: boolean, msg: String) : void
+  }
+
+  class StgnoService <<@Service>> {
+    - filesRepository : FilesRepository
+    - f5StegoService : F5StegoService
+    - dsssStegnoService : DSSSStegnoService
+    - pvdStegoService : PVDStegoService
+    - convertService : ConvertService
+    - StgnoTask : Thread
+    
+    + StgnoService(filesRepository: FilesRepository, f5StegoService: F5StegoService, dsssStegnoService: DSSSStegnoService, pvdStegoService: PVDStegoService, convertService: ConvertService)
+    + saveToHistory(userId: String, action: String, type: String, data: byte[]) : void
+    + embedMsg(fileBytes: byte[], mimeType: String, msg: String, username: String, embedTaskCallback: EmbedTaskCallback) : void
+    - embed(fileBytes: byte[], mimeType: String, msg: String) : byte[]
+    + extractMsg(fileBytes: byte[], mimeType: String, extractTaskCallback: ExtractTaskCallback) : void
+    - extract(fileBytes: byte[], mimeType: String) : String
+    + checkValid(mimeType: String, fileType: String) : boolean
+  }
+  
+  StgnoService +-- EmbedTaskCallback
+  StgnoService +-- ExtractTaskCallback
+}
+@enduml

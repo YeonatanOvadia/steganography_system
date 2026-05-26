@@ -1,0 +1,23 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+  
+  interface BeforeEnterObserver {
+    + beforeEnter(event: BeforeEnterEvent) : void
+  }
+
+  class RegisterView <<@Route("register")>> {
+    - userService : UserService
+    
+    + RegisterView(userService: UserService)
+    - showError(errorSpan: Span, message: String) : void
+  }
+  
+  VerticalLayout <|-- RegisterView
+  BeforeEnterObserver <|.. RegisterView
+}
+@enduml

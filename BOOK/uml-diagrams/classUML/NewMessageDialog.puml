@@ -1,0 +1,20 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class Dialog {
+  }
+
+  class NewMessageDialog {
+    - messageService : MessageService
+    - stegoService : StgnoService
+    - afterSendAction : Runnable
+    
+    + NewMessageDialog(messageService: MessageService, stegoService: StgnoService, afterSendAction: Runnable)
+    - buildWindow() : void
+  }
+  
+  Dialog <|-- NewMessageDialog
+}
+@enduml

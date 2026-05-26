@@ -1,0 +1,31 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+  
+  interface BeforeEnterObserver {
+  }
+
+  class SentMessagesView <<@Route("sent")>> {
+    - msgService : MessageService
+    - stgnoService : StgnoService
+    - grid : Grid<Message>
+    
+    + SentMessagesView(msgService: MessageService, stgnoService: StgnoService)
+    - showRecipientColumn() : void
+    - showBodyColumn() : void
+    - showFullTextDialog(fullText: String) : void
+    - showAttachmentColumn() : void
+    - showDeleteColumn() : void
+    - refreshGrid() : void
+    + beforeEnter(event: BeforeEnterEvent) : void
+    # onAttach(attachEvent: AttachEvent) : void
+  }
+  
+  VerticalLayout <|-- SentMessagesView
+  BeforeEnterObserver <|.. SentMessagesView
+}
+@enduml

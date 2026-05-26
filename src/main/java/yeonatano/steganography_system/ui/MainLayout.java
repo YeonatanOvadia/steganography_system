@@ -26,17 +26,14 @@ public class MainLayout extends AppLayout
     public MainLayout() 
     {
         // הפעלת מצב לילה (Dark Mode) באופן גלובלי לאפליקציה על ידי הזרקת Theme
-        UI.getCurrent().getElement().getThemeList().add("dark");
-        
+        UI.getCurrent().getElement().getThemeList().add("light");        
         createHeader();
         
-        // הגדרת עיצוב רקע גלובלי למערכת (Inline CSS). 
-        // יצירת תבנית רשת (Grid) המעניקה למערכת מראה טכנולוגי/סייבר, המתאים למערכת סטגנוגרפיה.
         getStyle()
-        .set("background-color", "#050505")
-        .set("background-image", "linear-gradient(rgba(13, 227, 20, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 227, 20, 0.04) 1px, transparent 1px)")
+        .set("background-color", "#fafafa") // רקע בהיר ונקי
+        .set("background-image", "linear-gradient(rgba(13, 227, 20, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 227, 20, 0.03) 1px, transparent 1px)")
         .set("background-size", "40px 40px")
-        .set("color", "#e0e0e0"); // צבע טקסט בהיר כברירת מחדל לניגודיות טובה על הרקע הכהה
+        .set("color", "#222222"); // צבע טקסט כהה לקריאות מקסימלית
     }
 
     /**
@@ -68,7 +65,7 @@ public class MainLayout extends AppLayout
             // שימוש ב-UI.getCurrent().navigate מבצע ניווט בצד הלקוח (SPA - Single Page Application) 
             // ללא טעינה מחדש של כל עמוד ה-HTML, מה שמשפר משמעותית את ביצועי המערכת.
             Button navHome = new Button("דף הבית", e -> UI.getCurrent().navigate(HomeView.class));
-            Button navStgno = new Button("הצפנה וחילוץ", e -> UI.getCurrent().navigate(StgnoView.class));
+            Button navStgno = new Button("הצפנה וחילוץ", e -> UI.getCurrent().navigate(StegnoView.class));
             Button navHistory = new Button("היסטוריית קבצים", e -> UI.getCurrent().navigate(HistoryView.class));
             Button navInbox = new Button("דואר נכנס", e -> UI.getCurrent().navigate(InboxView.class));
             Button navSent = new Button("דואר יוצא", e -> UI.getCurrent().navigate(SentMessagesView.class));

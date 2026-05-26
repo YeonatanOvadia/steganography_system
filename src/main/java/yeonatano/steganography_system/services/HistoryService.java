@@ -9,7 +9,7 @@ import java.util.List;
 @Service
 public class HistoryService 
 {
-    private final FilesRepository filesRepository;
+    private FilesRepository filesRepository;
 
     public HistoryService(FilesRepository filesRepository) 
     {

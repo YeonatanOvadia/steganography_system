@@ -1,0 +1,14 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system {
+  
+  interface AppShellConfigurator {
+  }
+
+  class AppConfig <<@Push>> {
+  }
+  
+  AppShellConfigurator <|.. AppConfig
+}
+@enduml

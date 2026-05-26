@@ -1,0 +1,41 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class VerticalLayout {
+  }
+  
+  interface BeforeEnterObserver {
+  }
+
+  class StgnoView <<@Route("stagno")>> {
+    - stgnoService : StgnoService
+    - ui : UI
+    - upload : Upload
+    - msgField : TextField
+    - currentNotification : Notification
+    - resultsContainer : VerticalLayout
+    - uploadedFile : File
+    - uploadedMimeType : String
+    
+    + StgnoView(stgnoService: StgnoService)
+    - UploadComponent() : void
+    - setupMessageField() : void
+    - setupButtons() : HorizontalLayout
+    - buildMainCard(buttonsLayout: HorizontalLayout) : VerticalLayout
+    - createComparisonView(original: byte[], stego: byte[], mimeType: String) : HorizontalLayout
+    - createMediaCard(label: String, data: byte[], mimeType: String) : VerticalLayout
+    - embedMsgAndAddImgToDB(msg: String) : void
+    - extractMsg() : void
+    - clearUploadData() : void
+    - showNotification(message: String, variant: NotificationVariant) : void
+    + beforeEnter(event: BeforeEnterEvent) : void
+    - getCurrentUsername() : String
+    - createSpinner(text: String, cancelFlag: AtomicBoolean) : Dialog
+  }
+  
+  VerticalLayout <|-- StgnoView
+  BeforeEnterObserver <|.. StgnoView
+}
+@enduml

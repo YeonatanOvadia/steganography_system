@@ -1,0 +1,10 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system {
+  
+  class AppMain <<@SpringBootApplication>> {
+    + {static} main(args: String[]) : void
+  }
+}
+@enduml

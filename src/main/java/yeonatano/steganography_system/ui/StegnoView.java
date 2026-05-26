@@ -19,18 +19,21 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinSession;
+import com.vaadin.flow.server.streams.FileUploadCallback;
 import com.vaadin.flow.server.streams.UploadHandler;
+import com.vaadin.flow.server.streams.UploadMetadata;
 import com.vaadin.flow.dom.Element;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import yeonatano.steganography_system.datamodels.User;
-import yeonatano.steganography_system.services.StgnoService;
-import yeonatano.steganography_system.services.StgnoService.EmbedTaskCallback;
-import yeonatano.steganography_system.services.StgnoService.ExtractTaskCallback;
+import yeonatano.steganography_system.services.StegnoService;
+import yeonatano.steganography_system.services.StegnoService.EmbedTaskCallback;
+import yeonatano.steganography_system.services.StegnoService.ExtractTaskCallback;
 
 /**
  * מחלקת התצוגה המרכזית (View) של מערכת הסטגנוגרפיה.
@@ -38,11 +41,11 @@ import yeonatano.steganography_system.services.StgnoService.ExtractTaskCallback;
  * המחלקה מיישמת את BeforeEnterObserver כדי להבטיח בקרת גישה (Access Control) ולוודא שרק משתמשים מחוברים ניגשים לדף.
  */
 @Route(value = "stagno", layout = MainLayout.class)
-public class StgnoView extends VerticalLayout implements BeforeEnterObserver 
+public class StegnoView extends VerticalLayout implements BeforeEnterObserver 
 {
     // הזרקת תלויות (Dependency Injection) לשירות הלוגיקה העסקית.
     // שומר על הפרדת רשויות (Separation of Concerns) בין שכבת התצוגה לשכבת הלוגיקה.
-    private final StgnoService stgnoService;
+    private final StegnoService stgnoService;
     
     // שמירת המופע הנוכחי של ה-UI. קריטי לעדכון הממשק מתוך תהליכי רקע (Background Threads) בצורה בטוחה.
     private final UI ui;
@@ -62,7 +65,7 @@ public class StgnoView extends VerticalLayout implements BeforeEnterObserver
      * 
      * @param stgnoService מופע (Singleton/Bean) של שירות הסטגנוגרפיה, מוזרק אוטומטית.
      */
-    public StgnoView(StgnoService stgnoService) 
+    public StegnoView(StegnoService stgnoService) 
     {   
         this.stgnoService = stgnoService;
         this.ui = UI.getCurrent();
@@ -93,12 +96,15 @@ public class StgnoView extends VerticalLayout implements BeforeEnterObserver
      */
     private void UploadComponent() 
     {
-        upload = new Upload(UploadHandler.toTempFile((metadata, file) -> {
-            this.uploadedFile = file;
-            this.uploadedMimeType = metadata.contentType();
-            
-            // עדכון הממשק חייב להתבצע דרך ui.access מכיוון שאירוע ההעלאה מנוהל ב-Thread נפרד של השרת
-            ui.access(() -> showNotification("קובץ הועלה זמנית בהצלחה", NotificationVariant.LUMO_SUCCESS));
+        upload = new Upload(UploadHandler.toTempFile(new FileUploadCallback() {
+            @Override
+            public void complete(UploadMetadata metadata, File file) throws IOException {
+                uploadedFile = file;
+                uploadedMimeType = metadata.contentType();
+                
+                // עדכון הממשק חייב להתבצע דרך ui.access מכיוון שאירוע ההעלאה מנוהל ב-Thread נפרד של השרת
+                ui.access(() -> showNotification("קובץ הועלה זמנית בהצלחה", NotificationVariant.LUMO_SUCCESS));
+            }
         }));
 
         
@@ -106,6 +112,9 @@ public class StgnoView extends VerticalLayout implements BeforeEnterObserver
         // מניעת דליפות זיכרון (Memory Leaks) וקוד זבל: ניקוי הקובץ הזמני כשהמשתמש מסיר אותו מהרכיב
         upload.getElement().addEventListener("file-remove", event -> clearUploadData());
         upload.setMaxFileSize(15 * 1024 * 1024); // הגבלת גודל ל-15MB למניעת מתקפות DoS והצפת שרת
+
+        upload.setAcceptedFileTypes("image/*", "audio/*");
+
         upload.setWidthFull();
         upload.setMaxFiles(1);
         upload.addFileRejectedListener(event -> 
@@ -265,7 +274,22 @@ public class StgnoView extends VerticalLayout implements BeforeEnterObserver
                             resultsContainer.add(comparison);
 
                             String base64Result = Base64.getEncoder().encodeToString(resultBytes);
-                            String extension = uploadedMimeType.startsWith("audio/") ? ".wav" : ".png";
+                            String extension;
+                            switch (uploadedMimeType) 
+                            {
+                                case "audio/wav":
+                                    extension = ".wav";
+                                    break;
+                                case "image/jpeg":
+                                case "image/jpg":
+                                    extension = ".jpg";
+                                    break;
+                                case "image/png":
+                                default:
+                                    extension = ".png";
+                                    break;
+                            }
+
                             Anchor downloadLink = new Anchor("data:" + uploadedMimeType + ";base64," + base64Result, "הורד את הקובץ המוטמע");
                             downloadLink.getElement().setAttribute("download", "stego_output" + extension); 
                             downloadLink.getStyle().set("font-weight", "bold").set("font-size", "18px").set("margin-top", "15px");

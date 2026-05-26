@@ -1,0 +1,13 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  class PVDStegoService <<@Service>> {
+    
+    + PVDStegoService()
+    + embed(fileBytes: byte[], secretMessage: String) : byte[]
+    + extract(fileBytes: byte[]) : String
+  }
+}
+@enduml

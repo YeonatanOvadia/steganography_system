@@ -1,0 +1,16 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.repositories {
+  
+  interface MongoRepository<Message, String> {
+  }
+
+  interface MessageRepository <<@Repository>> {
+    + findByReceiverOrderBySentTimeDesc(receiver: String) : List<Message>
+    + findBySenderOrderBySentTimeDesc(username: String) : List<Message>
+  }
+  
+  MongoRepository <|-- MessageRepository
+}
+@enduml

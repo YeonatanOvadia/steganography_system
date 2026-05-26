@@ -1,0 +1,33 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.datamodels {
+  
+  class Files <<@Document(collection="Files")>> {
+    - <<@Id>> id : String
+    - userId : String
+    - actionType : String
+    - timestamp : Date
+    - mediaType : String
+    - imageData : byte[]
+    - isDeleted : boolean
+    
+    + Files()
+    + Files(userId: String, actionType: String, mediaType: String, imageData: byte[])
+    + getId() : String
+    + setId(id: String) : void
+    + getUserId() : String
+    + setUserId(userId: String) : void
+    + getActionType() : String
+    + setActionType(actionType: String) : void
+    + getTimestamp() : Date
+    + setTimestamp(timestamp: Date) : void
+    + getMediaType() : String
+    + setMediaType(mediaType: String) : void
+    + getImageData() : byte[]
+    + setImageData(imageData: byte[]) : void
+    + isDeleted() : boolean
+    + setDeleted(deleted: boolean) : void
+  }
+}
+@enduml

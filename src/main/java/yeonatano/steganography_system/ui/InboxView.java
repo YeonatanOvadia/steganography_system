@@ -17,7 +17,7 @@ import com.vaadin.flow.server.VaadinSession;
 import yeonatano.steganography_system.datamodels.Message;
 import yeonatano.steganography_system.datamodels.User;
 import yeonatano.steganography_system.services.MessageService;
-import yeonatano.steganography_system.services.StgnoService;
+import yeonatano.steganography_system.services.StegnoService;
 
 
 /**
@@ -31,7 +31,7 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
 
     // הזרקת שירותים לגישה למסד הנתונים ולמנוע האלגוריתמיקה
     private MessageService msgService;
-    private StgnoService stgnoService;
+    private StegnoService stgnoService;
     
     // Grid להצגת אובייקטי Message ללא ייצור עמודות אוטומטי (שליטה מלאה בתצוגה)
     private Grid<Message> grid = new Grid<>(Message.class, false);
@@ -39,7 +39,7 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
     /**
      * בנאי המחלקה. מרכיב את ממשק המשתמש הראשי.
      */
-    public InboxView(MessageService msgService, StgnoService stgnoService) 
+    public InboxView(MessageService msgService, StegnoService stgnoService) 
     {
         this.msgService = msgService;
         this.stgnoService = stgnoService;

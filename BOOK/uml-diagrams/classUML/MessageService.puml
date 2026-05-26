@@ -1,0 +1,18 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  class MessageService <<@Service>> {
+    - messageRepository : MessageRepository
+    - filesRepository : FilesRepository
+    
+    + MessageService(messageRepository: MessageRepository, filesRepository: FilesRepository)
+    + sendMessage(sender: String, receiver: String, body: String, fileData: byte[], mimeType: String, actionType: String) : void
+    + getMyInbox(username: String) : List<Message>
+    + getMySentMessages(username: String) : List<Message>
+    + getFileById(fileId: String) : Files
+    + deleteMessage(id: String) : void
+  }
+}
+@enduml

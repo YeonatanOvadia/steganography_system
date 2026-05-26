@@ -1,0 +1,17 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.repositories {
+  
+  interface MongoRepository<Files, String> {
+  }
+
+  interface FilesRepository <<@Repository>> {
+    + findAllByUserId(userId: String) : List<Files>
+    + findImageDataById(id: String) : Files <<@Query>>
+    + findHistoryWithoutData(userId: String) : List<Files> <<@Query>>
+  }
+  
+  MongoRepository <|-- FilesRepository
+}
+@enduml

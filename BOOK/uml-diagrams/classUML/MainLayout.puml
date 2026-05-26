@@ -1,0 +1,16 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.ui {
+  
+  class AppLayout {
+  }
+
+  class MainLayout {
+    + MainLayout()
+    - createHeader() : void
+  }
+  
+  AppLayout <|-- MainLayout
+}
+@enduml

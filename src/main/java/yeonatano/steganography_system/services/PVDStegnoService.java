@@ -16,7 +16,7 @@ import java.util.BitSet;
  * מחלקה זו מנוהלת על ידי Spring Boot ומאפשרת הזרקה לשכבת הניתוב.
  */
 @Service
-public class PVDStegoService 
+public class PVDStegnoService 
 {
 
     /**

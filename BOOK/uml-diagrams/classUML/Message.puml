@@ -1,0 +1,26 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.datamodels {
+  
+  class Message <<@Document(collection="messages")>> {
+    - <<@Id>> id : String
+    - sender : String
+    - receiver : String
+    - body : String
+    - sentTime : LocalDateTime
+    - fileId : String
+    
+    + Message()
+    + Message(sender: String, receiver: String, body: String, fileId: String)
+    + getId() : String
+    + getSender() : String
+    + getReceiver() : String
+    + getBody() : String
+    + getSentTime() : LocalDateTime
+    + getFileId() : String
+    + hasFile() : boolean
+    + addClickListener(object: Object) : void
+  }
+}
+@enduml

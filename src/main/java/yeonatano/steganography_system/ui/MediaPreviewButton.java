@@ -13,7 +13,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
 import yeonatano.steganography_system.datamodels.Files;
-import yeonatano.steganography_system.services.StgnoService;
+import yeonatano.steganography_system.services.StegnoService;
 
 import java.util.Base64;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -26,9 +26,9 @@ import java.util.function.Supplier;
  */
 public class MediaPreviewButton extends Button 
 {
-    private final StgnoService steganographyService;
+    private final StegnoService steganographyService;
 
-    public MediaPreviewButton(String buttonText, Supplier<Files> fileSupplier, StgnoService stgnoService) 
+    public MediaPreviewButton(String buttonText, Supplier<Files> fileSupplier, StegnoService stgnoService) 
     {
         this.steganographyService = stgnoService;
         

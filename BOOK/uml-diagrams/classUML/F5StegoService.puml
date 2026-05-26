@@ -1,0 +1,14 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package yeonatano.steganography_system.services {
+  
+  class DSSSStegnoService <<@Service>> {
+    - {static} FIXED_PASSWORD : String
+    
+    + DSSSStegnoService()
+    + embed(fileBytes: byte[], messageStr: String) : byte[]
+    + extract(fileBytes: byte[]) : String
+  }
+}
+@enduml
