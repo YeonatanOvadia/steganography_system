@@ -1,29 +1,50 @@
 @startuml
-skinparam defaultFontName Arial
-skinparam direction top to bottom
 
-package "משתמשים שאינם מחוברים (Guests)" #LightGray {
-    rectangle "LoginView\nמסך התחברות" as login #White
-    rectangle "RegisterView\nמסך הרשמה" as register #White
+package "משתמש אורח (Guest)" {
+    rectangle LoginView
+    rectangle RegisterView
 }
 
-package "משתמשים מחוברים בלבד (Logged-in Users)" #LightCyan {
-    rectangle "MainLayout\nסרגל ניווט עליון (תפריט ראשי)" as main #White
+package "משתמש מחובר (Logged In)" {
+    rectangle "MainLayout (סרגל הניווט)" as NavBar
     
-    rectangle "StgnoView\nמסך הטמעה וחילוץ (עבודה)" as stgno #White
-    rectangle "InboxView\nתיבת דואר נכנס" as inbox #White
-    rectangle "SentMessagesView\nתיבת דואר יוצא" as sent #White
-    rectangle "HistoryView\nהיסטוריית פעולות וקבצים" as history #White
+    rectangle HomeView
+    rectangle StegnoView
+    rectangle HistoryView
+    rectangle InboxView
+    rectangle SentMessagesView
+
+    rectangle NewMessageDialog
+    rectangle FullTextDialog
+    rectangle ConfirmDeleteDialog
 }
 
-' הניווט הפנימי נשאר אנכי
-login <--> register : ניווט הלוך ושוב
+' --- הרשמה, כניסה ויציאה ---
+RegisterView --> LoginView
+LoginView --> HomeView 
+NavBar --> LoginView 
 
-' השינוי כאן: חץ עם קו אחד מציב את הקופסאות באותו הגובה (אחת ליד השנייה)
-login -> main : אימות מוצלח (Session נוצר)
+' --- סרגל הניווט (דו-כיווני לכל המסכים הפנימיים) ---
+NavBar <--> HomeView
+NavBar <--> StegnoView
+NavBar <--> HistoryView
+NavBar <--> InboxView
+NavBar <--> SentMessagesView
 
-main --> stgno : ניתוב ברירת מחדל / בתפריט
-main --> inbox : בחירה בתפריט העליון
-main --> sent : בחירה בתפריט העליון
-main --> history : בחירה בתפריט העליון
+
+' --- ניווט ישיר מכפתורי מסך הבית אל שאר המסכים ---
+HomeView --> StegnoView
+HomeView --> HistoryView
+HomeView --> InboxView
+HomeView --> SentMessagesView
+HomeView --> RegisterView
+
+' --- חלונות קופצים (נפתחים מהמסך ונסגרים חזרה אליו) ---
+InboxView <--> NewMessageDialog
+SentMessagesView <--> NewMessageDialog
+
+InboxView <--> FullTextDialog
+
+HistoryView <--> ConfirmDeleteDialog
+
 @enduml

@@ -1,0 +1,83 @@
+@startuml
+left to right direction
+skinparam shadowing false
+hide empty members
+hide methods
+hide attributes
+
+' ==========================================
+' External Frameworks (Vaadin)
+' ==========================================
+package "External_Libraries" {
+    interface BeforeEnterObserver <<Vaadin>>
+    class VerticalLayout <<Vaadin>>
+    class AppLayout <<Vaadin>>
+    class Dialog <<Vaadin>>
+    class Button <<Vaadin>>
+}
+
+' ==========================================
+' Services (Reference from Backend)
+' ==========================================
+package "Services (Backend Logic)" {
+    class UserService
+    class MessageService
+    class HistoryService
+    class StgnoService
+}
+
+' ==========================================
+' UI Views & Components
+' ==========================================
+package "UI_Views" {
+    class MainLayout
+    class HomeView
+    class LoginView
+    class RegisterView
+    class StgnoView
+    class InboxView
+    class SentMessagesView
+    class HistoryView
+    class NewMessageDialog
+    class MediaPreviewButton
+}
+
+' ==========================================
+' Relationships: Inheritance (<|--)
+' ==========================================
+AppLayout <|-- MainLayout
+VerticalLayout <|-- HomeView
+VerticalLayout <|-- LoginView
+VerticalLayout <|-- RegisterView
+VerticalLayout <|-- StgnoView
+VerticalLayout <|-- InboxView
+VerticalLayout <|-- SentMessagesView
+VerticalLayout <|-- HistoryView
+Dialog <|-- NewMessageDialog
+Button <|-- MediaPreviewButton
+
+' ==========================================
+' Relationships: Realization (<|..)
+' ==========================================
+BeforeEnterObserver <|.. RegisterView
+BeforeEnterObserver <|.. StgnoView
+BeforeEnterObserver <|.. InboxView
+BeforeEnterObserver <|.. SentMessagesView
+BeforeEnterObserver <|.. HistoryView
+
+' ==========================================
+' Relationships: Composition (*--) UI to Services & Components
+' ==========================================
+LoginView *-- UserService
+RegisterView *-- UserService
+StgnoView *-- StgnoService
+InboxView *-- MessageService
+SentMessagesView *-- MessageService
+NewMessageDialog *-- MessageService
+HistoryView *-- HistoryService
+
+InboxView *-- MediaPreviewButton
+SentMessagesView *-- MediaPreviewButton
+HistoryView *-- MediaPreviewButton
+
+@enduml

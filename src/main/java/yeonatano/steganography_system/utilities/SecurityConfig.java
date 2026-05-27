@@ -1,4 +1,4 @@
-package yeonatano.steganography_system;
+package yeonatano.steganography_system.utilities;
 
 
 import org.springframework.context.annotation.Bean;

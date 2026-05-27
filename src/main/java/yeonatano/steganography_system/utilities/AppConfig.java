@@ -1,4 +1,4 @@
-package yeonatano.steganography_system;
+package yeonatano.steganography_system.utilities;
 
 import com.vaadin.flow.component.page.AppShellConfigurator;
 import com.vaadin.flow.component.page.Push;

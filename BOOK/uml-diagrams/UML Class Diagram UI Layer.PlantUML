@@ -1,0 +1,69 @@
+@startuml
+left to right direction
+skinparam shadowing false
+hide empty members
+hide methods
+hide attributes
+
+package "Vaadin Framework" {
+    interface BeforeEnterObserver
+    class VerticalLayout
+    class AppLayout
+    class Dialog
+    class Button
+}
+
+package "Services (Reference)" {
+    class UserService
+    class MessageService
+    class HistoryService
+    class StgnoService
+}
+
+package "UI_Views" {
+    class MainLayout
+    class HomeView
+    class LoginView
+    class RegisterView
+    class StgnoView
+    class InboxView
+    class SentMessagesView
+    class HistoryView
+    
+    class NewMessageDialog
+    class MediaPreviewButton
+}
+
+' === ירושה (Inheritance) ===
+AppLayout <|-- MainLayout
+VerticalLayout <|-- HomeView
+VerticalLayout <|-- LoginView
+VerticalLayout <|-- RegisterView
+VerticalLayout <|-- StgnoView
+VerticalLayout <|-- InboxView
+VerticalLayout <|-- SentMessagesView
+VerticalLayout <|-- HistoryView
+Dialog <|-- NewMessageDialog
+Button <|-- MediaPreviewButton
+
+' === מימוש ממשק (Realization) ===
+BeforeEnterObserver <|.. RegisterView
+BeforeEnterObserver <|.. StgnoView
+BeforeEnterObserver <|.. InboxView
+BeforeEnterObserver <|.. SentMessagesView
+BeforeEnterObserver <|.. HistoryView
+
+' === הכלה (Composition / הזרקת שירותים ורכיבים ל-Views) ===
+LoginView *-- UserService
+RegisterView *-- UserService
+StgnoView *-- StgnoService
+InboxView *-- MessageService
+SentMessagesView *-- MessageService
+NewMessageDialog *-- MessageService
+HistoryView *-- HistoryService
+
+InboxView *-- MediaPreviewButton
+SentMessagesView *-- MediaPreviewButton
+HistoryView *-- MediaPreviewButton
+
+@enduml

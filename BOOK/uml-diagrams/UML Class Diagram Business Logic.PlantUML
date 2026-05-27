@@ -1,0 +1,57 @@
+@startuml
+left to right direction
+skinparam shadowing false
+hide empty members
+hide methods
+hide attributes
+
+package "Configurations & External" {
+    class SecurityConfig
+    class OkHttpClient <<OkHttp>>
+}
+
+package "Repositories (Reference)" {
+    interface UserRepository
+    interface MessageRepository
+    interface FilesRepository
+}
+
+package "Services" {
+    class UserService
+    class MessageService
+    class HistoryService
+    class StgnoService
+    class F5StegoService
+    class DSSSStegnoService
+    class PVDStegoService
+    class ConvertService
+}
+
+package "Utilities" {
+    class DsssUtils
+    class F5Utility
+    class PvdUtils
+    package "QDCT" #LightGray {
+    }
+}
+
+' === הכלה (Composition / הזרקת תלויות לשירותים) ===
+SecurityConfig *-- UserService
+
+UserService *-- UserRepository
+MessageService *-- MessageRepository
+MessageService *-- FilesRepository
+HistoryService *-- FilesRepository
+
+StgnoService *-- F5StegoService
+StgnoService *-- DSSSStegnoService
+StgnoService *-- PVDStegoService
+StgnoService *-- ConvertService
+ConvertService *-- OkHttpClient
+
+DSSSStegnoService *-- DsssUtils
+PVDStegoService *-- PvdUtils
+F5StegoService *-- F5Utility
+F5StegoService *-- "QDCT"
+
+@enduml

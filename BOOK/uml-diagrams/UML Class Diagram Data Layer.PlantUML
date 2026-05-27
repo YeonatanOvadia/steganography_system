@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+skinparam shadowing false
+hide empty members
+hide methods
+hide attributes
+
+package "Spring Framework" {
+    interface MongoRepository
+}
+
+package "Data_Models" {
+    class User
+    class Message
+    class Files
+}
+
+package "Repositories" {
+    interface UserRepository
+    interface MessageRepository
+    interface FilesRepository
+}
+
+' === ירושה (Inheritance) ===
+MongoRepository <|-- UserRepository
+MongoRepository <|-- MessageRepository
+MongoRepository <|-- FilesRepository
+
+' === הכלה (Aggregation / אגרגציה של מודלים) ===
+UserRepository o-- User 
+MessageRepository o-- Message 
+FilesRepository o-- Files 
+Message o-- Files 
+
+@enduml
