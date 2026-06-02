@@ -1,5 +1,6 @@
 package yeonatano.steganography_system.ui;
 
+import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
@@ -8,6 +9,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.Notification.Position;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -165,7 +167,7 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
             deleteBtn.addClickListener(event -> 
             {
                 // 1. פידבק מיידי על המסך ללא חלונית מודאלית חוסמת
-                Notification.show("מוחק את ההודעה מהתיבה...", 2000, Notification.Position.BOTTOM_START);
+                Notification.show("מוחק את ההודעה מהתיבה...", 2000, Position.MIDDLE);
                 
                 // שמירת ה-Context של ה-UI הנוכחי
                 UI currentUI = UI.getCurrent();
@@ -183,7 +185,7 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
                     } catch (Exception ex) {
                         // 4. במקרה של שגיאה במסד הנתונים, נקבל התראת שגיאה ברורה על המסך
                         currentUI.access(() -> {
-                            Notification.show("שגיאה: המחיקה נכשלה. " + ex.getMessage(), 5000, Notification.Position.MIDDLE);
+                            Notification.show("שגיאה: המחיקה נכשלה. " + ex.getMessage(), 5000,Position.MIDDLE);
                         });
                     }
                 }).start();
@@ -214,5 +216,22 @@ public class InboxView extends VerticalLayout implements BeforeEnterObserver
     {
         if (VaadinSession.getCurrent().getAttribute("user") == null) 
             event.rerouteTo(RegisterView.class);    
+    }
+
+     /**
+     * אירוע מחזור חיים המופעל כאשר הרכיב מחובר ל-UI באופן מלא.
+     * מפעיל מנגנון Polling (דגימה מחזורית) מול השרת.
+     */
+    @Override
+    protected void onAttach(AttachEvent attachEvent) 
+    {
+        super.onAttach(attachEvent);
+        UI ui = attachEvent.getUI();
+        
+        // הגדרת Polling כל 15 שניות. 
+        // מאפשר לטבלה להתרענן אוטומטית למקרה שהודעה נמחקה מחוץ לחלון הנוכחי,
+        // או כדי לעדכן סטטוסים אם יש צורך בכך מבלי שהמשתמש ילחץ על רענון ידני.
+        ui.setPollInterval(15000); 
+        ui.addPollListener(e -> refreshGrid());
     }
 }

@@ -45,16 +45,16 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
 {
     // הזרקת תלויות (Dependency Injection) לשירות הלוגיקה העסקית.
     // שומר על הפרדת רשויות (Separation of Concerns) בין שכבת התצוגה לשכבת הלוגיקה.
-    private final StegnoService stgnoService;
+    private StegnoService stgnoService;
     
     // שמירת המופע הנוכחי של ה-UI. קריטי לעדכון הממשק מתוך תהליכי רקע (Background Threads) בצורה בטוחה.
-    private final UI ui;
+    private UI ui;
     
     // רכיבי ממשק משתמש (Stateful UI Components)
     private Upload upload;
     private TextField msgField;
     private Notification currentNotification = new Notification();
-    private final VerticalLayout resultsContainer = new VerticalLayout();
+    private VerticalLayout resultsContainer = new VerticalLayout();
     
     // ניהול מצב (State Management) של הקובץ המועלה באופן זמני
     private File uploadedFile;
@@ -73,7 +73,7 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
         // הגדרת פריסת הבסיס של הדף (Flexbox מאחורי הקלעים)
         setSizeFull();
         setAlignItems(Alignment.CENTER);
-        setJustifyContentMode(JustifyContentMode.CENTER);
+        setJustifyContentMode(JustifyContentMode.START); // מצמיד את התוכן למעלה ולא לאמצע
 
         // בניית הממשק באמצעות פונקציות עזר לשמירה על קוד מודולרי, קריא וקל לתחזוקה
         UploadComponent();
@@ -96,7 +96,10 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
      */
     private void UploadComponent() 
     {
-        upload = new Upload(UploadHandler.toTempFile(new FileUploadCallback() {
+        upload = new Upload(UploadHandler.toTempFile
+
+        (new FileUploadCallback() 
+        {
             @Override
             public void complete(UploadMetadata metadata, File file) throws IOException {
                 uploadedFile = file;
@@ -253,14 +256,17 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
         try {
             final byte[] originalBytes = Files.readAllBytes(uploadedFile.toPath());
 
-            stgnoService.embedMsg(originalBytes, uploadedMimeType, msg, getCurrentUsername(), new EmbedTaskCallback() {
+            stgnoService.embedMsg(originalBytes, uploadedMimeType, msg, getCurrentUsername(),
+            new EmbedTaskCallback() 
+            {
                 @Override
-                public void onComplete(boolean isSuccess, byte[] resultBytes) 
+                public void onComplete(boolean isSuccess, byte[] resultBytes, String errorMessage) 
                 {
                     ui.access(() -> 
                     {
                         // 2. בדיקה: אם המשתמש לחץ ביטול בזמן שהשרת עבד - עוצרים פה ולא מעדכנים כלום!
-                        if (isCancelled.get()) {
+                        if (isCancelled.get()) 
+                        {
                             return; 
                         }
 
@@ -274,21 +280,18 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
                             resultsContainer.add(comparison);
 
                             String base64Result = Base64.getEncoder().encodeToString(resultBytes);
-                            String extension;
-                            switch (uploadedMimeType) 
-                            {
-                                case "audio/wav":
-                                    extension = ".wav";
-                                    break;
-                                case "image/jpeg":
-                                case "image/jpg":
-                                    extension = ".jpg";
-                                    break;
-                                case "image/png":
-                                default:
-                                    extension = ".png";
-                                    break;
-                            }
+                            String extension = "";
+
+                            if (uploadedMimeType.equals("audio/wav")) 
+                                extension = ".wav";
+                            else if (uploadedMimeType.equals("image/jpg")||uploadedMimeType.equals("image/jpeg")) 
+                                extension = ".jpg";
+                            else if (uploadedMimeType.equals("image/png")) 
+                                extension = ".png";
+                            else if(uploadedMimeType.startsWith("audio/"))
+                                extension = ".wav";
+                            else if(uploadedMimeType.startsWith("image/"))
+                                extension = ".png";
 
                             Anchor downloadLink = new Anchor("data:" + uploadedMimeType + ";base64," + base64Result, "הורד את הקובץ המוטמע");
                             downloadLink.getElement().setAttribute("download", "stego_output" + extension); 
@@ -305,7 +308,7 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
                         } 
                         else 
                         {
-                           showNotification("שגיאה בתהליך ההטמעה", NotificationVariant.LUMO_ERROR);
+                           showNotification(errorMessage, NotificationVariant.LUMO_ERROR);
                         }
                         
                         ui.push(); // דחיפת העדכון לדפדפן
@@ -342,10 +345,12 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
         try {
             byte[] fileBytes = Files.readAllBytes(uploadedFile.toPath());
 
-            stgnoService.extractMsg(fileBytes, uploadedMimeType, new ExtractTaskCallback() 
+            stgnoService.extractMsg(fileBytes, uploadedMimeType,
+
+            new ExtractTaskCallback() 
             {
                 @Override
-                public void onComplete(boolean isSuccess, String msg) 
+                public void onComplete(boolean isSuccess, String msg, String errorMessage) 
                 {
                     ui.access(() -> 
                     {
@@ -368,7 +373,7 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
                         } 
                         else
                         {
-                            showNotification("לא נמצא מסר או שהקובץ אינו נתמך", NotificationVariant.LUMO_ERROR);
+                            showNotification(errorMessage, NotificationVariant.LUMO_ERROR);
                         }
                         
                         // 3. קריטי! דחיפת רענון רכיב ה-Upload לדפדפן באופן מיידי
@@ -420,7 +425,8 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
     public void beforeEnter(BeforeEnterEvent event) 
     {
         // בדיקת Session: האם קיים אובייקט חוקי של משתמש מחובר?
-        if (VaadinSession.getCurrent().getAttribute("user") == null) {
+        if (VaadinSession.getCurrent().getAttribute("user") == null) 
+        {
             // מנגנון הגנה: ניתוב מחדש עוקף (Reroute) למסך התחברות
             event.rerouteTo(RegisterView.class);
         }
@@ -460,10 +466,11 @@ public class StegnoView extends VerticalLayout implements BeforeEnterObserver
         VerticalLayout layout = new VerticalLayout(spinnerText, pb);
         layout.setAlignItems(Alignment.CENTER);
 
-        // הוספת כפתור הביטול רק אם הוגדר דגל בטיחות
+
         if (cancelFlag != null) 
         {
-            Button cancelBtn = new Button("ביטול", e -> {
+            Button cancelBtn = new Button("ביטול", e -> 
+            {
                 cancelFlag.set(true); // סימון ל-Callback להתעלם מהתוצאות
                 spinner.close();
                 showNotification("פעולת ההטמעה בוטלה על ידי המשתמש", NotificationVariant.LUMO_ERROR);

@@ -19,6 +19,7 @@ import yeonatano.steganography_system.services.UserService;
  * תצוגה זו מממשת אימות משתמשים (Authentication) וניהול סשנים (Session Management) 
  * באופן ידני מבוסס-אירועים (Event-Driven), המותאם לארכיטקטורת Single Page Application (SPA).
  */
+
 @Route("login")
 @PageTitle("Login | StegoSystem") // הגדרת כותרת לשונית הדפדפן (SEO ו-UX)
 public class LoginView extends VerticalLayout 

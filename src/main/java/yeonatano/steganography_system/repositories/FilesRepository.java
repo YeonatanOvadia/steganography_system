@@ -9,13 +9,7 @@ import org.springframework.stereotype.Repository;
 import yeonatano.steganography_system.datamodels.Files;
 
 /**
- * ממשק רפוזיטורי (Repository) לניהול ישויות הקבצים (Files) במסד הנתונים MongoDB.
- * הממשק יורש מ-MongoRepository, מה שמעניק למערכת יכולות לביצוע פעולות CRUD 
- * (שמירה, שליפה, עדכון ומחיקה) על קבצים המאוחסנים בבסיס הנתונים בצורה אוטומטית.
- * 
- * הפרמטרים של MongoRepository:
- * 1. Files - סוג האובייקט (ה-Entity) המנוהל.
- * 2. String - סוג הנתון של המזהה הייחודי (ID).
+ * ממשק רפוזיטורי לניהול הקבצים (Files) במסד הנתונים MongoDB.
  */
 @Repository
 public interface FilesRepository extends MongoRepository<Files, String> 
@@ -28,13 +22,30 @@ public interface FilesRepository extends MongoRepository<Files, String>
      * - findAll(): שליפת כל הקבצים הקיימים.
      * - deleteById(String id): מחיקת קובץ.
      */
+     
+    /**
+     * שליפת כל הקבצים המשויכים למשתמש מסוים.
+     * @param userId מזהה המשתמש.
+     * @return רשימת הקבצים של המשתמש.
+     */
     List<Files> findAllByUserId(String userId);
 
 
+    /**
+     * שליפת המידע הבינארי (imageData) בלבד עבור קובץ ספציפי, לחסכון בתעבורת רשת.
+     * @param id מזהה הקובץ.
+     * @return אובייקט Files המכיל רק את המידע הבינארי של התמונה/השמע.
+     */
     @Query(value = "{ '_id': ?0 }", fields = "{ 'imageData': 1, '_id': 0 }")
     Files findImageDataById(String id);
 
     // הוסף את זה לתוך FilesRepository
+    /**
+     * שליפת היסטוריית הקבצים הפעילים של המשתמש לטובת התצוגה.
+     * מסנן החוצה את המידע הבינארי הכבד (imageData: 0) כדי למנוע קריסת זיכרון.
+     * @param userId מזהה המשתמש.
+     * @return רשימת קבצים (מטא-דאטה בלבד) שאינם מסומנים כמחוקים.
+     */
     @Query(value = "{ 'userId': ?0, 'isDeleted': false }", fields = "{ 'imageData': 0 }")
     List<Files> findHistoryWithoutData(String userId);
 }

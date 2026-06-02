@@ -70,6 +70,7 @@ public class MainLayout extends AppLayout
             Button navInbox = new Button("דואר נכנס", e -> UI.getCurrent().navigate(InboxView.class));
             Button navSent = new Button("דואר יוצא", e -> UI.getCurrent().navigate(SentMessagesView.class));
 
+
             // שימוש בוריאנט LUMO_TERTIARY מסיר את המסגרת והרקע מהכפתור, 
             // כך שהוא מתנהג וולחץ כמו כפתור, אך נראה כמו לינק תפריט מודרני ונקי.
             navHome.addThemeVariants(ButtonVariant.LUMO_TERTIARY);

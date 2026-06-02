@@ -8,6 +8,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.Notification.Position;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -26,6 +27,8 @@ import yeonatano.steganography_system.services.StegnoService;
  * מחלקה זו מציגה טבלה (Grid) של כל הקבצים (תמונות ושמע) שהמשתמש העלה או עיבד במערכת.
  * היא מאפשרת צפייה מקדימה במדיה, הורדה מחדש, חילוץ מסרים (דרך קליק ימני) ומחיקה לוגית.
  */
+// [הוספת הסבר:] ה-Route מקשר את המחלקה לכתובת /history בדפדפן.
+// layout = MainLayout.class אומר שהמסך הזה יוצג בתוך תבנית האב (הכוללת למשל תפריט עליון/צדדי).
 @Route(value = "history", layout = MainLayout.class)
 public class HistoryView extends VerticalLayout implements BeforeEnterObserver 
 {
@@ -50,6 +53,7 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
         this.stgnoService = stgnoService;
         
         // הגדרות עיצוב מבניות
+        // [הוספת הסבר:] setSizeFull גורם לקומפוננטה לתפוס 100% גובה ורוחב של המסך/מיכל שלה.
         setSizeFull();
         setAlignItems(Alignment.CENTER);
         setSpacing(true);
@@ -77,6 +81,7 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
      */
     private void showTimestamp() 
     {
+        // [הוספת הסבר:] הפונקציה addColumn מקבלת ביטוי למבדה (Lambda) ששולף את המידע הרלוונטי מכל אובייקט File.
         grid.addColumn(file -> file.getTimestamp()).setHeader("תאריך ושעה").setSortable(true);
     }
 
@@ -95,11 +100,13 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
      */
     private void showDbImage() 
     {
+        // [הוספת הסבר:] addComponentColumn מאפשר להכניס כפתורים ורכיבים אקטיביים לטבלה, בניגוד לטקסט רגיל.
         grid.addComponentColumn(dbFile -> {
             return new MediaPreviewButton(
                 "הצג מדיה", 
                 () -> {
                     // מושכים את הבינאריות רק כשהמשתמש באמת לוחץ
+                    // [הוספת הסבר:] זוהי טכניקת טעינה עצלה (Lazy Loading) ששומרת על הזיכרון של השרת.
                     byte[] fullData = historyService.getFileData(dbFile.getId());
                     dbFile.setImageData(fullData);
                     return dbFile;
@@ -136,11 +143,14 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
                     
                     // השהיית הכפתור כדי למנוע לחיצות כפולות בזמן ההמתנה לשרת
                     deleteBtn.setEnabled(false);
-                    Notification.show("ממתין לאישור מחיקה ממסד הנתונים...", 2000, com.vaadin.flow.component.notification.Notification.Position.BOTTOM_START);
+                    Notification.show("ממתין לאישור מחיקה ממסד הנתונים...", 2000, Position.BOTTOM_START);
                     
+                    // [הוספת הסבר:] שומרים גישה ל-UI הנוכחי לפני פתיחת תהליכון (Thread) חדש,
+                    // כי ל-Thread עצמאי אין מושג לאיזה חלון דפדפן הוא אמור לשדר את התוצאה.
                     UI currentUI = UI.getCurrent();
                     
                     // 2. תהליכון רקע: קודם מוחקים ב-DB, ורק אז מעדכנים את המסך
+                    // [הוספת הסבר:] ביצוע קריאה למסד הנתונים ב-Thread נפרד מונע מהמסך של המשתמש לקפוא (Non-blocking).
                     new Thread(() -> {
                         try {
                             System.out.println("Attempting to logically delete file ID: " + file.getId());
@@ -151,6 +161,7 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
                             System.out.println("Successfully updated isDeleted=true for file ID: " + file.getId());
                             
                             // 3. הצלחה! חזרה ל-UI Thread כדי להעלים את השורה ולהציג הודעה
+                            // [הוספת הסבר:] currentUI.access הוא הדרך הבטוחה לחזור מה-Thread של הרקע אל ה-UI ולבצע שינויים חזותיים.
                             currentUI.access(() -> {
                                 // רק עכשיו השורה באמת נעלמת מהעין
                                 grid.getListDataView().removeItem(file); 
@@ -200,6 +211,7 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
      */
     private void refreshGrid() 
     {
+        // [הוספת הסבר:] שולפים את אובייקט המשתמש מתוך ה-Session (שנשמר שם בעת ההתחברות המוצלחת).
         User user = (User) VaadinSession.getCurrent().getAttribute("user");
         if (user != null) 
             // קריאה מתאימה לשירות המביאה היסטוריה פעילה בלבד
@@ -208,6 +220,8 @@ public class HistoryView extends VerticalLayout implements BeforeEnterObserver
 
     /**
      * מנגנון אבטחה בסיסי: חוסם גישה ממשתמשים שאינם מחוברים.
+     * // [הוספת הסבר:] פונקציה זו מופעלת על ידי ה-Router של Vaadin *לפני* שהדף נטען בפועל,
+     * // מה שמונע חשיפת נתונים למשתמש שניסה להקליד את הכתובת ישירות בדפדפן מבלי להתחבר.
      */
     @Override
     public void beforeEnter(BeforeEnterEvent event) 

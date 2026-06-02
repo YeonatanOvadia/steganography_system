@@ -26,12 +26,13 @@ import yeonatano.steganography_system.datamodels.User;
  * ללא צורך בגיליונות CSS חיצוניים.
  */
 @Route(value = "", layout = MainLayout.class)
-@PageTitle("STEGO-CORE | Home")
+@PageTitle("STEGO-MAIL | Home")
 public class HomeView extends VerticalLayout 
 {
 
     public HomeView() 
     {
+
         // --- 1. הגדרות מעטפת ויזואלית (Layout Configuration) ---
         // הגדרת פריסת המסך (Flexbox): תופס את כל הגובה, ממרכז את התוכן אופקית, ומצמיד למעלה אנכית.
         setSizeFull();
@@ -46,6 +47,8 @@ public class HomeView extends VerticalLayout
         // --- 3. בניית הטיפוגרפיה (Typography & Headers) ---
         
         H1 mainTitle = new H1("STEGNO-MAIL");
+
+
         // שימוש ב-Inline CSS דרך Java כדי לייצר אפקטים מתקדמים (כמו Text Shadow זוהר)
         mainTitle.getStyle()
             .set("font-family", "'Rajdhani', sans-serif")
@@ -104,7 +107,7 @@ public class HomeView extends VerticalLayout
             .set("margin-top", "15px")
             .set("margin-bottom", "15px");
 
-        Paragraph p3 = new Paragraph("מגיש: יהונתן אליעזר עובדה שנת 2026");
+        Paragraph p3 = new Paragraph("מגיש: יהונתן עובדיה שנת 2026");
         p3.getStyle().set("font-size", "1.1em").set("line-height", "1.6").set("margin-bottom", "0").set("color", "#555555"); // אפור כהה וברור
         descriptionLayout.add(p1, p2, p3);
 
@@ -115,7 +118,7 @@ public class HomeView extends VerticalLayout
         cardContainer.setMaxWidth("800px");
         cardContainer.getStyle()
             // שימוש בנתיב יחסי לתמונת הרקע (התמונה צריכה לשבת בתיקיית src/main/resources/META-INF/resources/)
-            .set("background", "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)), url('Images/background.jpg')")
+            .set("background", "linear-gradient(rgba(200, 200, 200, 0.5), rgba(255, 255, 255, 0.9)), url('Images/background.jpg')")
             .set("background-size", "cover") 
             .set("background-position", "center") 
             .set("border", "1px solid #e0e0e0") // מסגרת בהירה ועדינה
@@ -142,12 +145,6 @@ public class HomeView extends VerticalLayout
         btnhistory.setWidth("200px");
 
 
-        Button btnRegister = new Button("הרשמת סוכן", VaadinIcon.USERS.create(), e -> UI.getCurrent().navigate(RegisterView.class));
-        styleSecondaryButton(btnRegister);
-        btnRegister.setHeight("50px");
-        btnRegister.setWidth("200px");
-
-
         // תוקן: ניווט לדף SentMessagesView וקביעת גודל תקינה לכפתור
         Button btnSentMessages = new Button("דואר יוצא", VaadinIcon.PAPERPLANE.create(), e -> UI.getCurrent().navigate(SentMessagesView.class));
         stylePrimaryButton(btnSentMessages);
@@ -163,10 +160,9 @@ public class HomeView extends VerticalLayout
         // סידור הכפתורים בקבוצות אופקיות (שורות)
         HorizontalLayout MailActionButtons = new HorizontalLayout(btnSentMessages, btnInbox);
         HorizontalLayout primaryActionButtons = new HorizontalLayout(btnStgno, btnhistory);
-        HorizontalLayout secondaryActionButtons = new HorizontalLayout(btnRegister);
         
         // איגוד כל השורות לפאנל אנכי אחד
-        VerticalLayout buttonsLayout = new VerticalLayout(secondaryActionButtons, primaryActionButtons, MailActionButtons);
+        VerticalLayout buttonsLayout = new VerticalLayout(primaryActionButtons, MailActionButtons);
         buttonsLayout.setAlignItems(Alignment.CENTER);
         buttonsLayout.getStyle().set("margin-top", "2rem");
 
@@ -179,7 +175,7 @@ public class HomeView extends VerticalLayout
     // =========================================================================
 
     /**
-     * מחילה עיצוב של "כפתור פעולה ראשי" (צבע מלא, בולט).
+     * מכילה עיצוב של "כפתור פעולה ראשי" (צבע מלא, בולט).
      * @param btn הכפתור לעיצוב
      */
     private void stylePrimaryButton(Button btn) 
@@ -208,36 +204,6 @@ public class HomeView extends VerticalLayout
         {
             btn.getStyle().remove("box-shadow");
             btn.getStyle().remove("transform"); // החזרת הכפתור למצבו הטבעי
-        });
-    }
-
-    /**
-     * מחילה עיצוב של "כפתור פעולה משני" (שקוף עם מסגרת, Outline).
-     * @param btn הכפתור לעיצוב
-     */
-    private void styleSecondaryButton(Button btn) 
-    {
-        btn.getStyle()
-            .set("background-color", "transparent")
-            .set("color", "#0de314")
-            .set("border", "1px solid #0de314")
-            .set("border-radius", "0")
-            .set("transition", "all 0.2s ease-in-out")
-            .set("cursor", "pointer");
-
-        // אפקט Hover - צביעת הרקע בשקיפות כשהעכבר מעל הכפתור
-        btn.getElement().addEventListener("mouseover", e -> 
-        {
-            btn.getStyle().set("background-color", "rgba(13, 227, 20, 0.1)");
-            btn.getStyle().set("box-shadow", "0 0 15px rgba(13, 227, 20, 0.3)");
-            btn.getStyle().set("transform", "translateY(-2px)");
-        });
-        
-        btn.getElement().addEventListener("mouseout", e -> 
-        {
-            btn.getStyle().set("background-color", "transparent");
-            btn.getStyle().remove("box-shadow");
-            btn.getStyle().remove("transform");
         });
     }
 }

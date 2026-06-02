@@ -81,7 +81,7 @@ public class UserService
         Optional<User> userOpt = userRepository.findByUsername(username);
         
         // בדיקה האם האובייקט מכיל תוכן (המשתמש נמצא)
-        if (userOpt.isPresent()) 
+        if (userOpt.isPresent())
         {
             User user = userOpt.get();
             

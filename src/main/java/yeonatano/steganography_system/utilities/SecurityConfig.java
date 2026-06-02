@@ -14,11 +14,11 @@ public class SecurityConfig
      * כאן אנחנו מגדירים את ה-Bean ש-Spring חיפש.
      * זה אומר ל-Spring: "בכל פעם שמישהו (כמו UserService) מבקש PasswordEncoder,
      * תן לו עותק של BCryptPasswordEncoder".
+     * כך שאנו בונים את הפעולה רק פעם אחת במקום לבנות אותה בכמה מקומות
      */
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() 
+    {
         return new BCryptPasswordEncoder();
     }
-
-    
 }

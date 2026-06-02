@@ -61,27 +61,41 @@ public class ConvertService
         // למה זה הכרחי? ה-API של CloudConvert מקבל זרם ביטים, והוא חייב סיומת כדי לדעת
         // איזה אלגוריתם (Codec) להפעיל כדי לקרוא את קובץ המקור כראוי.
         String sourceExt = "bin"; // Fallback ליתר ביטחון
-        if (sourceMimeType != null && sourceMimeType.contains("/")) {
+        if (sourceMimeType != null && sourceMimeType.contains("/")) 
+        {
             sourceExt = sourceMimeType.substring(sourceMimeType.indexOf("/") + 1);
+            // אני בעצם רוצה לדעת איזה סוג קובץ זה ולהמיר את הפורמט הזה
         }
 
         // שלב 1: הצהרת כוונות (Job Creation)
         // פנייה לשרת ליצירת מסגרת עבודה הכוללת העלאה, המרה לפורמט היעד, ויצירת קישור ייצוא.
         System.out.println("[CloudConvert] שלב 1: יצירת Job להמרה מ-" + sourceExt + " ל-" + targetFormat + "...");
+
+        // הכנת תוכנית עבודה עבור הקובץ וקבלת קישור להעלאה
         JSONObject jobResponse = createJob(targetFormat);
+
+        //חילוץ ID של פעולת ההמרה
         String jobId = jobResponse.getJSONObject("data").getString("id");
+
+        // חילוץ המשמה מתגובת השרת
         JSONObject uploadTask = jobResponse.getJSONObject("data").getJSONArray("tasks").getJSONObject(0);
+
 
         // שלב 2: העלאת המידע הבינארי לכתובת הייעודית שקיבלנו מהשרת
         System.out.println("[CloudConvert] שלב 2: העלאת הקובץ לשרת...");
+        // צירוף חלקי המשימה ביחד ושליחתם לשרת
         uploadFile(uploadTask, fileData, sourceMimeType, sourceExt);
 
         // שלב 3: המתנה פעילה (Polling) עד לסיום העיבוד בצד השרת
+        // נשאל את השרת כל כמה זמן האם הוא סיים
+        //כשיסיים נחלץ את הקישור של ההורדה מהמשימה 
         System.out.println("[CloudConvert] שלב 3: המתנה לסיום ההמרה...");
         String downloadUrl = waitForResult(jobId);
 
         // שלב 4: משיכת התוצאה המוצלחת ישירות לתוך זיכרון ה-RAM
+        // ניכנס לקישור ההורדה ונחלץ מהתגובה את המטא דאטה של הקובץ ונחזיר את הכל במערך בתים למי שזימן את הפונקצייה
         System.out.println("[CloudConvert] שלב 4: הורדת הקובץ המומר...");
+
         return downloadFileAsBytes(downloadUrl);
     }
 
@@ -91,7 +105,7 @@ public class ConvertService
      */
     private JSONObject createJob(String targetFormat) throws IOException 
     {
-        // שימוש בתכונת Text Blocks (מ-Java 15) ליצירת JSON קריא ונוח לתחזוקה.
+        // שימוש בתכונת Text Blocks ליצירת JSON קריא ונוח לתחזוקה.
         // למה? זה חוסך את הצורך לשרשר מחרוזות (+) ולהשתמש בתווי מילוט (\") שהופכים את הקוד למבולגן.
         // הזרקת פורמט היעד (%s) מתבצעת באופן דינמי באמצעות פונקציית formatted.
         String jsonPayload = """
@@ -150,6 +164,7 @@ public class ConvertService
         MultipartBody.Builder builder = new MultipartBody.Builder().setType(MultipartBody.FORM);
         
         // הזרקת כל פרמטרי ההרשאה שחזרו מהשרת לתוך הטופס
+        // כדי ששרת ההמרה ידע לשלוף משרת הנתונים את הקובץ שעלה
         for (String key : parameters.keySet())
             builder.addFormDataPart(key, parameters.get(key).toString());
         
@@ -194,6 +209,8 @@ public class ConvertService
 
                 // המרת התשובה הטקסטואלית לאובייקט JSON כדי שנוכל לשלוף ממנו נתונים בקלות
                 JSONObject json = new JSONObject(response.body().string());
+
+                // נחלץ את הסטטוס מהתגובה של השרת
                 String status = json.getJSONObject("data").getString("status");
 
                 if (status.equals("finished")) 
@@ -201,6 +218,8 @@ public class ConvertService
                     // חיפוש הקישור (URL) המיוצא מתוך אובייקט ה-JSON המסועף
                     // למה הלולאה? כי JSON מחזיר עץ נתונים, ויכולות להיות כמה משימות (tasks). אנחנו מחפשים רק את שלב הייצוא.
                     JSONArray tasks = json.getJSONObject("data").getJSONArray("tasks");
+                    // נעבור על רשימת המשימות שקיבלנו 
+                    // נחפש את משימת הייצוא
                     for (int i = 0; i < tasks.length(); i++) 
                     {
                         JSONObject task = tasks.getJSONObject(i);

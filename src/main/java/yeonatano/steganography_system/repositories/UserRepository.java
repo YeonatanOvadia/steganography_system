@@ -12,8 +12,7 @@ import yeonatano.steganography_system.datamodels.User;
  * ממשק רפוזיטורי (Repository) לניהול ישויות המשתמשים (User) במסד הנתונים MongoDB.
  * הממשק יורש מ-MongoRepository, מה שמעניק לו אוטומטית יכולות CRUD בסיסיות 
  * (שמירה, מחיקה, עדכון ושליפה לפי מזהה) ללא צורך בכתיבת קוד נוסף.
- * 
- * הפרמטרים של MongoRepository הם:
+ * * הפרמטרים של MongoRepository הם:
  * 1. User - סוג האובייקט שמנוהל.
  * 2. String - סוג הנתון של ה-ID (במקרה שלנו שם המשתמש).
  */
@@ -48,4 +47,5 @@ public interface UserRepository extends MongoRepository<User, String>
      * @return אובייקט Optional המכיל את המשתמש אם נמצא
      */
     public Optional<User> findByUsername(String username);
+    // השימוש ביוזר סרויס
 }

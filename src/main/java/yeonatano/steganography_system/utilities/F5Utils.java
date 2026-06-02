@@ -77,7 +77,7 @@ public class F5Utils
      */
     public static int getLSB(int value)
     {
-        return Math.abs(value) % 2;
+        return value & 1;
     }
 
     /**

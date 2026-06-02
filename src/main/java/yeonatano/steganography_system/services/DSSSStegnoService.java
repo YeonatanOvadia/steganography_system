@@ -10,23 +10,51 @@ import java.io.InputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Random;
 
 /**
  * מחלקת שירות המיישמת סטגנוגרפיה באודיו מבוססת אלגוריתם DSSS.
  * מבצעת הנחתה של אות השמע, חישוב עוצמת הטמעה (Alpha) דינמית אדפטיבית,
  * מודולציה של סיביות המסר עם רצף PN על גבי דגימות השמע,
  * ופונקציונליות חילוץ עיוור (Blind Extraction) באמצעות קורלציה ונירמול Zero-Mean.
+ * * סיבוכיות מקום (Space Complexity): O(S)
+ * כאשר S הוא מספר דגימות האודיו (Samples). כל הדגימות נטענות למערך בזיכרון, וכן נוצר רצף PN 
+ * באותו הגודל. הקצאת הזיכרון גדלה באופן ליניארי ביחס לאורך קובץ השמע.
  */
 @Service
 public class DSSSStegnoService 
 {
     // מפתח סימטרי המשמש ליצירת רצף הפסאודו-אקראי (PN Sequence)
-    private static String FIXED_PASSWORD = "a1a2a3";
+    private String SECRET_SEED = DsssUtils.SECRET_SEED;
+    private int SEED_HASH = SECRET_SEED.hashCode();
+    private int SAMPLES_PER_BIT = DsssUtils.SAMPLES_PER_BIT;
+    private int HEADER_BITS = DsssUtils.HEADER_BITS;
+    private int MIN_SKIP = DsssUtils.MIN_SKIP;
+    private int MAX_SKIP = DsssUtils.MAX_SKIP;
 
-    public byte[] embed(byte[] fileBytes, String messageStr) 
+    /**
+     * פונקציית ההטמעה (Embedding) המאפננת את מסר הטקסט לתוך גלי הקול של השמע המקורי.
+     * הלוגיקה מבוססת על הנחתת השמע ב-10%, בדיקת קיבולת מקדימה (Fail-Fast) עם חישוב דילוגים מקסימלי,
+     * חישוב עוצמת הטמעה אדפטיבית (Local Alpha) לכל בלוק, ופיזור (Spread) של הביטים בעזרת רצף ה-PN.
+     * לאחר כל ביט מתבצע דילוג אקראי המסונכרן בעזרת Seed.
+     *
+     * @param fileBytes נתוני קובץ האודיו המקורי (WAV) במערך בתים.
+     * @param messageStr המסר הסודי להטמעה בקידוד UTF-8.
+     * @return מערך בתים (byte[]) המייצג את קובץ ה-Stego-Audio המוכן.
+     * @throws IllegalArgumentException אם הקובץ קצר מדי ולא יכול להכיל את המסר והדילוגים.
+     * @throws Exception עבור שגיאות קריאה, כתיבה או המרת פורמטים.
+     * * זמן ריצה (Time Complexity) במקרה הגרוע (Worst Case):
+     * O(S)
+     * כאשר S הוא המספר הכולל של הדגימות (Samples). כל לולאות העזר (הנחתה, יצירת PN) רצות 
+     * באופן ליניארי O(S). לולאת ההטמעה מתקדמת קדימה בלבד ללא חזרות, ולכן סך הגישות 
+     * למערך חסום תמיד על ידי S.
+     */
+    public byte[] embed(byte[] fileBytes, String messageStr) throws Exception 
     {
         try 
         {
+            Random seededRandom = new Random(SEED_HASH);
+            
             // ---------------------------------------------------------
             // שלב 1: המרת קלט
             // ---------------------------------------------------------
@@ -44,7 +72,8 @@ public class DSSSStegnoService
             
             AudioFormat originalFormat;
             // 2. כיוון שזה קובץ שמע נמיר אותו לסטירים של סאונד כדי שנוכל לחלץ בקלות את ההדרים של הקובץ 
-            try (AudioInputStream ais = AudioSystem.getAudioInputStream(inputStream)) {
+            try (AudioInputStream ais = AudioSystem.getAudioInputStream(inputStream)) 
+            {
                 // 3. שומרים את הכותרת למשתנה שלנו
                 originalFormat = ais.getFormat();
             }
@@ -60,7 +89,7 @@ public class DSSSStegnoService
             //אז כרגע כל תא במערך זה מכיל עוצמת קול יחידה
 
             // ---------------------------------------------------------
-            // שלב 3: הנחתה (Attenuation)
+            // שלב 3: הנמכה (Attenuation)
             // ---------------------------------------------------------
             for (int i = 0; i < samples.length; i++)
             {
@@ -82,7 +111,26 @@ public class DSSSStegnoService
 
             // שרשור כותרת המסר וגוף המסר למערך נתונים רציף אחד
             int[] bitsToEmbed = DsssUtils.concatArrays(headerBits, messageBits);
-    
+
+            // ==========================================
+            // חומת המגן - Fail-Fast Validation
+            // חישוב התרחיש הגרוע ביותר: כל ביט לוקח פריסה + דילוג מקסימלי
+            int maxRequiredSamples = bitsToEmbed.length * (SAMPLES_PER_BIT + MAX_SKIP);
+
+            int skipIndex = (int) originalFormat.getSampleRate() * originalFormat.getChannels();
+            int totalUsableSamples = samples.length - skipIndex;
+            int maxTotalBits = totalUsableSamples / SAMPLES_PER_BIT;
+            int maxMessageBytes = (maxTotalBits - 16) / 8; // מחסירים 16 ביטים של כותרת ומחלקים ב-8
+
+            if (maxRequiredSamples > samples.length) 
+            {
+                if (maxMessageBytes <= 0) 
+                    throw new IllegalArgumentException("קובץ השמע קצר מדי ולא יכול להכיל מסר. אנא העלה קובץ ארוך יותר");
+                else 
+                    throw new IllegalArgumentException("הקובץ הנוכחי יכול להכיל מקסימום " + maxMessageBytes + " תווים, אך המסר שלך דורש " + messageLength);
+                    // עוצר את התוכנית מיד, לפני שעשינו אפילו פעולה מתמטית אחת
+            }
+            // ==========================================
 
             System.out.println("Message length: " + messageLength + " bytes");
             System.out.println("Total bits to embed: " + bitsToEmbed.length);
@@ -93,22 +141,19 @@ public class DSSSStegnoService
             
             // הפקת רצף DSSS פסאודו-אקראי בגודל קובץ השמע
             // יצירת רעש מיסוך
-            int[] pnSequence = DsssUtils.generatePnSequence(FIXED_PASSWORD, samples.length);
-
-            // חישוב המיקום של השנייה הראשונה בקובץ, לצורך דילוג מטעמי יציבות אות
-            // על ידי חילוץ מההדר כמה זה שנייה
-            int skipIndex = (int) originalFormat.getSampleRate() * originalFormat.getChannels();
+            int[] pnSequence = DsssUtils.generatePnSequence(SECRET_SEED, samples.length);
             
             //פוינטר לשמע
-            int sampleIndex = skipIndex; 
+            int sampleIndex = 0; 
 
             // פונינטר למסר
             int msgIndex;
             
+            // לולאה ראשית אשר עוברת על כל הקובץ
             for (msgIndex = 0; msgIndex < bitsToEmbed.length; msgIndex++)
             {
                 // וידוא כי נותרה קיבולת מספקת בקובץ להטמעת הסיבית הנוכחית
-                if (sampleIndex + DsssUtils.SAMPLES_PER_BIT >= samples.length) 
+                if (sampleIndex + SAMPLES_PER_BIT + MAX_SKIP >= samples.length)                
                 {
                     System.out.println("Error: Audio capacity too small for this message!");
                     return null;
@@ -116,14 +161,16 @@ public class DSSSStegnoService
 
                 // --- חישוב מקדם עוצמת הטמעה אדפטיבית (Local Alpha) ---
                 // סוכם את כל הבלוק פריסה 
+                // לולאה שעוברת על כל הקטע המיועד להטמעה וסוכמת אותו 
+                // כדי לחשב ממוצע עוצמת סאונד בקטע זה
                 long localSum = 0;
-                for (int i = 0; i < DsssUtils.SAMPLES_PER_BIT; i++) 
+                for (int i = 0; i < SAMPLES_PER_BIT; i++) 
                 {
                     localSum += Math.abs(samples[sampleIndex + i]);
                 }
 
                 // חישוב הממוצע בבלוק הפריסה הזה
-                double localAvg = localSum / (double) DsssUtils.SAMPLES_PER_BIT;
+                double localAvg = localSum / (double) SAMPLES_PER_BIT;
                 
                 // קביעת מקדם אלפא ל-21% מהעוצמה הממוצעת המקומית
                 double localAlpha = localAvg * 0.21; 
@@ -136,8 +183,8 @@ public class DSSSStegnoService
                 int bitToEmbed = bitsToEmbed[msgIndex];
                 int bipolarBit = (bitToEmbed == 1) ? 1 : -1;
 
-                // פיזור (Spread) והטמעת הסיבית המאופננת על פני בלוק דגימות השמע
-                for (int i = 0; i < DsssUtils.SAMPLES_PER_BIT; i++) 
+                // פיזור (Spread) והטמעת הביטים על פני בלוק דגימות השמע
+                for (int i = 0; i < SAMPLES_PER_BIT; i++) 
                 {
                     // חישוב המודולציה לפי נוסחת DSSS: Alpha * Bit * PN
                     double mod = localAlpha * bipolarBit * pnSequence[sampleIndex];
@@ -150,6 +197,13 @@ public class DSSSStegnoService
                     samples[sampleIndex] = (short) newVal;
                     sampleIndex++;
                 }
+                // חישוב וביצוע הדילוג לקראת הביט הבא
+                int seededSkip = seededRandom.nextInt(MIN_SKIP, MAX_SKIP);
+                //שימוש בפונקצייה המעבירה את המספר שהתקבל מהזרע חישובים חשבוניים ומוציאה מספר חדש
+                //שהוא בעצם יהיה הדילוג שלנו 
+                
+                sampleIndex += seededSkip;
+
             }
 
             // ---------------------------------------------------------
@@ -168,17 +222,39 @@ public class DSSSStegnoService
             
             return null;
         } 
+        catch (IllegalArgumentException e) 
+        {
+            // אלו שגיאות הלוגיקה והולידציה שלנו (כמו קובץ קטן מדי) - נעביר אותן בדיוק כמו שהן
+            throw e;
+        }
         catch (Exception e) 
         {
-            e.printStackTrace(); 
-            return null;
+            // אלו שגיאות מערכת לא צפויות (קריסת זיכרון, קובץ פגום, NullPointer) - נעטוף אותן
+            throw new Exception("שגיאה: " + e.getMessage(), e);
         }
     }
 
-    public String extract(byte[] fileBytes) 
+    /**
+     * פונקציית חילוץ עיוור (Blind Extraction) המפענחת את המסר מתוך האודיו הנגוע.
+     * הפונקציה משחזרת את רצף ה-PN והדילוגים האקראיים (Skips) בעזרת אותו מפתח Seed ששימש להטמעה.
+     * היא מחלצת תחילה את אורך המסר ולאחר מכן את המסר עצמו על ידי נירמול מקומי (Zero-Mean) 
+     * וביצוע מכפלה פנימית (קורלציה) עם רצף הרעש.
+     *
+     * @param fileBytes נתוני קובץ השמע המוצפן (Stego-Audio).
+     * @return מחרוזת טקסט המכילה את המסר הסודי שפוענח.
+     * @throws IllegalArgumentException אם האורך שחולץ אינו הגיוני (מה שמעיד על העדר מסר או רעש קיצוני).
+     * @throws Exception במקרה של שגיאת מערכת לא צפויה.
+     *
+     * זמן ריצה (Time Complexity) במקרה הגרוע (Worst Case):
+     * O(S)
+     * בדומה להטמעה, הלולאות לחילוץ האורך והמסר מתקדמות על פני המערך במעבר רציף (Single Pass) 
+     * ולכן הפעולה מתבצעת בזמן ליניארי לחלוטין ביחס לגודל קובץ השמע (מספר הדגימות S).
+     */
+    public String extract(byte[] fileBytes) throws Exception 
     {
         try 
         {
+            Random seededRandom = new Random(SEED_HASH);
             // ---------------------------------------------------------
             // שלב 1: אתחול וקריאת נתוני האודיו המוטמעים
             // ---------------------------------------------------------
@@ -194,32 +270,34 @@ public class DSSSStegnoService
             short[] samples = DsssUtils.readWavSamplesFromStream(inputStream);
 
             // יצירת רצף ה-PN הזהה לרצף אשר שימש בשלב ההטמעה
-            int[] pnSequence = DsssUtils.generatePnSequence(FIXED_PASSWORD, samples.length);
+            int[] pnSequence = DsssUtils.generatePnSequence(SECRET_SEED, samples.length);
             
-            int skipIndex = (int) originalFormat.getSampleRate() * originalFormat.getChannels();
-            int sampleIndex = skipIndex;
+            //פוינטר לשמע
+            int sampleIndex = 0;
 
             // ---------------------------------------------------------
-            // שלב 2: חילוץ אורך המסר (16 Bits) בעזרת נירמול מקומי
+            // שלב 2: חילוץ אורך המסר (HEADER_BITS ) בעזרת נירמול מקומי
             // ---------------------------------------------------------
+
+            // פונינטר למסר
             int messageLength = 0;
             
-            for (int i = 0; i < 16; i++) 
+            for (int i = 0; i < HEADER_BITS; i++) 
             {
-                if (sampleIndex + DsssUtils.SAMPLES_PER_BIT >= samples.length) break;
+                if (sampleIndex + SAMPLES_PER_BIT >= samples.length) break;
 
                 // חישוב רכיב DC המקומי (ממוצע) לצורך Zero-Mean Normalization
                 double blockSum = 0;
-                for (int j = 0; j < DsssUtils.SAMPLES_PER_BIT; j++) 
+                for (int j = 0; j < SAMPLES_PER_BIT; j++) 
                 {
                     blockSum += samples[sampleIndex + j];
                 }
-                double blockMean = blockSum / DsssUtils.SAMPLES_PER_BIT;
+                double blockMean = blockSum / SAMPLES_PER_BIT;
 
                 double correlation = 0;
                 
                 // ביצוע מכפלה פנימית (קורלציה) על בלוק הדגימות המנורמל
-                for (int j = 0; j < DsssUtils.SAMPLES_PER_BIT; j++) 
+                for (int j = 0; j < SAMPLES_PER_BIT; j++) 
                 {
                     double normalizedSample = samples[sampleIndex] - blockMean;
                     correlation += normalizedSample * pnSequence[sampleIndex];
@@ -227,20 +305,26 @@ public class DSSSStegnoService
                 }
                 
                 // קבלת החלטה לוגית: ערך חיובי מעיד על '1', ערך שלילי מעיד על '0'
-                correlation /= DsssUtils.SAMPLES_PER_BIT;
+                correlation /= SAMPLES_PER_BIT;
                 int bit = (correlation > 0) ? 1 : 0;
                 
                 // ביצוע שיפט לוגי (Bitwise OR) לבניית הערך השלם המייצג את האורך
                 messageLength = (messageLength << 1) | bit;
+
+                // דילוג אחרי קריאת כל ביט של כותרת
+                int seededSkip = seededRandom.nextInt(MIN_SKIP, MAX_SKIP);
+                //שימוש בפונקצייה המעבירה את המספר שהתקבל מהזרע חישובים חשבוניים ומוציאה מספר חדש
+                //שהוא בעצם יהיה הדילוג שלנו 
+                sampleIndex += seededSkip;
             }
 
             System.out.println("Detected message length: " + messageLength + " bytes");
 
             // ולידציה של אורך המסר כנגד קיבולת הקובץ
-            int maxPossibleBytes = (samples.length - skipIndex) / (DsssUtils.SAMPLES_PER_BIT * 8);
-            if (messageLength <= 0 || messageLength > maxPossibleBytes) {
-                return "שגיאה: הקובץ לא מכיל מסר חוקי, או שהמוזיקה רועשת מדי לפיענוח מדויק.";
-            }
+            int maxPossibleBytes = (samples.length) / (SAMPLES_PER_BIT + MIN_SKIP) / 8;
+
+            if (messageLength <= 0 || messageLength > maxPossibleBytes) 
+                throw new IllegalArgumentException("הקובץ פגום / ללא מסר");            
 
             // ---------------------------------------------------------
             // שלב 3: חילוץ נתוני המסר (Payload)
@@ -252,19 +336,21 @@ public class DSSSStegnoService
             System.out.println("Extracting message...");
 
             // חזרה על מנגנון הקורלציה והנירמול לצורך חילוץ הסיביות הנותרות
+            //
             while (msgIndex < totalBitsToExtract) 
             {
-                if (sampleIndex + DsssUtils.SAMPLES_PER_BIT >= samples.length) break;
+                if (sampleIndex + SAMPLES_PER_BIT >= samples.length) break;
 
                 double blockSum = 0;
-                for (int j = 0; j < DsssUtils.SAMPLES_PER_BIT; j++) {
+                for (int j = 0; j < SAMPLES_PER_BIT; j++) 
+                {
                     blockSum += samples[sampleIndex + j];
                 }
-                double blockMean = blockSum / DsssUtils.SAMPLES_PER_BIT;
+                double blockMean = blockSum / SAMPLES_PER_BIT;
 
                 double correlation = 0;
                 
-                for (int i = 0; i < DsssUtils.SAMPLES_PER_BIT; i++) 
+                for (int i = 0; i < SAMPLES_PER_BIT; i++) 
                 {
                     if (sampleIndex >= samples.length) break; 
                     double normalizedSample = samples[sampleIndex] - blockMean;
@@ -272,10 +358,16 @@ public class DSSSStegnoService
                     sampleIndex++;
                 }
                 
-                correlation /= DsssUtils.SAMPLES_PER_BIT;
+                correlation /= SAMPLES_PER_BIT;
                 
                 extractedBits[msgIndex] = (correlation > 0) ? 1 : 0;
                 msgIndex++;
+
+                // דילוג אחרי קריאת כל ביט של המסר
+                int seededSkip = seededRandom.nextInt(MIN_SKIP, MAX_SKIP);
+                //שימוש בפונקצייה המעבירה את המספר שהתקבל מהזרע חישובים חשבוניים ומוציאה מספר חדש
+                //שהוא בעצם יהיה הדילוג שלנו 
+                sampleIndex += seededSkip;
             }
 
             // ---------------------------------------------------------
@@ -291,10 +383,15 @@ public class DSSSStegnoService
             return hiddenMessage;
 
         } 
+        catch (IllegalArgumentException e) 
+        {
+            // שגיאות לוגיקה שיזמנו - נזרוק אותן הלאה
+            throw e;
+        }
         catch (Exception e) 
         {
-            e.printStackTrace();
-            return "Extraction failed: " + e.getMessage();
+            // שגיאות מערכת לא צפויות
+            throw new Exception("שגיאה: " + e.getMessage(), e);
         }
     }
 }

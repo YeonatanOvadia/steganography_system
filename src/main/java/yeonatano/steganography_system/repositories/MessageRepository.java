@@ -25,5 +25,12 @@ public interface MessageRepository extends MongoRepository<Message, String>
      */
     List<Message> findByReceiverOrderBySentTimeDesc(String receiver);
 
+    /**
+     * שאילתה מותאמת אישית השולפת את כל ההודעות שנשלחו על ידי שולח ספציפי (Inbox/Outbox).
+     * מחזירה את התוצאות מההודעה החדשה ביותר לישנה ביותר (SentTime Descending).
+     *
+     * @param username שם המשתמש של השולח (מי ששלח את ההודעה)
+     * @return רשימה (List) של הודעות ממוינות לפי זמן שליחה בסדר יורד
+     */
     List<Message> findBySenderOrderBySentTimeDesc(String username);
 }

@@ -9,18 +9,19 @@ import java.util.BitSet;
  * מרכזת את כל הלוגיקה המתמטית של חישובי הטווחים, פעולות בינאריות (Bitwise),
  * וקריאה/כתיבה בטוחה של פיקסלים מתוך התמונה.
  */
-public class PvdUtils {
+public class PvdUtils 
+{
 
     // ========== הגבלות מערכת ==========
     
     // הגבלת מימדי התמונה כדי למנוע קריסת זיכרון (OutOfMemoryError) בשרת.
     // תמונות ענקיות ידרשו עיבוד ארוך מאוד ומערכי זיכרון עצומים.
-    public static final int MAX_IMAGE_WIDTH = 2000;
-    public static final int MAX_IMAGE_HEIGHT = 2000;
+    public static int MAX_IMAGE_WIDTH = 2000;
+    public static int MAX_IMAGE_HEIGHT = 2000;
     
     // מספר הביטים שנקצה בתחילת התמונה כדי לשמור את אורך המסר.
     // 16 ביטים מאפשרים לנו לשמור מספרים עד 65,535 (כלומר הודעה באורך של כ-65 קילו-בייט).
-    public static final int MESSAGE_LENGTH_BITS = 16;
+    public static int MESSAGE_LENGTH_BITS = 16;
 
     // ========== טבלת הטווחים (Quantization Range Table) ==========
     
@@ -34,7 +35,7 @@ public class PvdUtils {
      * 
      * מבנה כל שורה במערך: {גבול תחתון, גבול עליון, מספר הביטים להטמעה (n)}
      */
-    private static final int[][] RANGE_TABLE = 
+    private static int[][] RANGE_TABLE = 
     {
             // MIN  MAX  BITS (n)
             {   0,   7,   3 },  // טווח של 8 ערכים (0 עד 7) -> יכול להכיל 3 ביטים (2^3 = 8)
@@ -175,5 +176,36 @@ public class PvdUtils {
         }
         
         return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+
+    /**
+     * סורק את התמונה ומחשב את הקיבולת המקסימלית (בביטים) שניתן להחביא בה
+     * באמצעות אלגוריתם PVD.
+     * * @param image תמונת הכיסוי (Cover Image)
+     * @return סך כל הביטים שניתן להחביא בתמונה זו
+     */
+    public static long calculateMaxCapacityInBits(BufferedImage image) {
+        long totalCapacity = 0;
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        // סריקת התמונה בזוגות פיקסלים, בדיוק כמו באלגוריתם ההטמעה
+        for (int y = 0; y < height; y++) 
+        {
+            for (int x = 0; x < width - 1; x += 2) 
+            {
+                // שימוש במתודות הקיימות שלנו לקבלת ערוץ הכחול
+                int p1 = getBlueValue(image, x, y);
+                int p2 = getBlueValue(image, x + 1, y);
+                
+                int d = Math.abs(p2 - p1);
+                int rangeIndex = getRangeIndex(d);
+                
+                // הוספת כמות הביטים שהטווח הנוכחי מאפשר להחביא
+                totalCapacity += getCapacity(rangeIndex);
+            }
+        }
+        return totalCapacity;
     }
 }

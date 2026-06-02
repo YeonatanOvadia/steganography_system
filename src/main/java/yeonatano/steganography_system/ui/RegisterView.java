@@ -27,7 +27,7 @@ import yeonatano.steganography_system.services.UserService;
  * מיישמת את BeforeEnterObserver כדי לשמש כ"שומר סף הפוך" (Reverse Auth Guard) - 
  * מניעת גישה לדף זה ממשתמשים שכבר מחוברים למערכת.
  */
-@Route("register") 
+@Route("register")
 @PageTitle("הרשמה | Steganography System") // הגדרת כותרת הטאב בדפדפן (SEO ו-UX)
 public class RegisterView extends VerticalLayout implements BeforeEnterObserver 
 {

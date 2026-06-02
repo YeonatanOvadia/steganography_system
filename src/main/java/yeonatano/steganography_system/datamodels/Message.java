@@ -96,9 +96,4 @@ public class Message
     {
         return fileId != null && !fileId.trim().isEmpty();
     }
-
-    public void addClickListener(Object object) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'addClickListener'");
-    }
 }

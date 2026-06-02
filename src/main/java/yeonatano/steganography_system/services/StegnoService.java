@@ -16,7 +16,6 @@ import yeonatano.steganography_system.repositories.FilesRepository;
 @Service
 public class StegnoService 
 {
-
     /**
      * ממשק (Interface) להגדרת Callback לאחר סיום תהליך הטמעה (Embed).
      * תבנית זו מאפשרת תקשורת אסינכרונית: ה-Thread שעובד ברקע משתמש בפונקציה זו
@@ -24,7 +23,7 @@ public class StegnoService
      */
     public interface EmbedTaskCallback 
     {
-        public void onComplete(boolean isSuccess, byte[] resultBytes);
+        public void onComplete(boolean isSuccess, byte[] resultBytes, String errorMessage);    
     }
 
     /**
@@ -32,7 +31,7 @@ public class StegnoService
      */
     public interface ExtractTaskCallback 
     {
-        public void onComplete(boolean isSuccess, String msg);
+        public void onComplete(boolean isSuccess, String msg, String errorMessage);
     }
 
     // רפוזיטורי לשמירת תיעוד של הפעולות (Audit Trail) במסד הנתונים
@@ -125,8 +124,7 @@ public class StegnoService
                 else 
                 {
                     System.err.println("שגיאה: הקובץ אינו תמונה ואינו שמע. לא ניתן להטמיע.");
-                    embedTaskCallback.onComplete(false, null);
-                    return; // יציאה מוקדמת למניעת בזבוז משאבים
+                    embedTaskCallback.onComplete(false, null, "הקובץ שהועלה אינו נתמך להטמעה");                    return; // יציאה מוקדמת למניעת בזבוז משאבים
                 }
 
                 // שלב 2: ניתוב לאלגוריתם ההטמעה וביצוע ההצפנה.
@@ -136,19 +134,24 @@ public class StegnoService
                 if (resultBytes != null) 
                 {
                     saveToHistory(username, "Embed", currentMimeType, resultBytes); 
-                    embedTaskCallback.onComplete(true, resultBytes);
+                    embedTaskCallback.onComplete(true, resultBytes, null);
                 } 
                 else 
                 {
-                    embedTaskCallback.onComplete(false, null);
+                    embedTaskCallback.onComplete(false, null, "שגיאה פנימית: האלגוריתם לא החזיר תוצאה");                
                 }
 
+            }
+            catch (IllegalArgumentException e) 
+            {
+                // תופס שגיאות חוסר מקום וזורק ל-UI
+                embedTaskCallback.onComplete(false, null, e.getMessage());
             }
              catch (Exception e) 
             {
                 System.err.println("שגיאה במהלך תהליך ההטמעה: " + e.getMessage());
                 e.printStackTrace();
-                embedTaskCallback.onComplete(false, null); // הודעת כשלון במקרה של זריקת חריגה
+                embedTaskCallback.onComplete(false, null, ""); // הודעת כשלון במקרה של זריקת חריגה
             }
         });
         
@@ -166,79 +169,70 @@ public class StegnoService
             case "image/jpg":
             case "image/jpeg":
                 System.out.println("f5 jpeg");
-                return embedF5(fileBytes, msg); // הטמעה במרחב התדר באמצעות F5
+                return f5StegoService.embed(fileBytes, msg);     
             case "image/png":
                 System.out.println("PVD PNG");
-                return embedPVD(fileBytes, msg); // הטמעה במרחב המרחבי (הפרשי פיקסלים) באמצעות PVD
+                return pvdStegoService.embed(fileBytes, msg);
             case "audio/wav":
                 System.out.println("embedDSSS");
-                return embedDSSS(fileBytes, msg); // הטמעת שמע באמצעות Direct-Sequence Spread Spectrum
+                return dsssStegnoService.embed(fileBytes, msg); // הטמעת שמע באמצעות Direct-Sequence Spread Spectrum
             default:
                 return null;
         }
     }
-
-    private byte[] embedDSSS(byte[] fileBytes, String msg) 
-    {
-        System.out.println("embedDSSS");
-        return dsssStegnoService.embed(fileBytes, msg);
-    }
-
-    private byte[] embedPVD(byte[] fileBytes, String msg) throws Exception 
-    {
-        System.out.println("embedPVD");
-        return pvdStegoService.embed(fileBytes, msg);
-    }
-
-    private byte[] embedF5(byte[] fileBytes, String msg) 
-    {
-        System.out.println("Sending to F5StegoService with message: " + msg);
-        return f5StegoService.embed(fileBytes, msg);     
-    }
-
     // ========================================================================
     // מנגנון החילוץ והפענוח (Extraction Engine)
     // ========================================================================
 
     /**
-     * הפונקציה הראשית לחילוץ מסר סודי מתוך מדיה נגועה (Stego-object).
-     * עוטפת את תהליך הקריאה והפענוח ב-Thread נפרד.
-     *
-     * @param fileBytes המדיה הבינארית החשודה שמכילה מסר.
-     * @param mimeType סוג המדיה לניתוב לאלגוריתם הפיענוח.
-     * @param extractTaskCallback פונקציית התגובה שתקבל את המחרוזת המפוענחת.
+     * הפונקציה הראשית לחילוץ מסר סודי מתוך קובץ מדיה.
+     * הפונקציה מנהלת את תהליך החילוץ בצורה אסינכרונית (ברקע) כדי לא לתקוע את ממשק המשתמש.
+     * * @param fileBytes מערך הבייטים של הקובץ (תמונה או שמע) שהמשתמש העלה.
+     * @param mimeType סוג הקובץ (למשל "image/png" או "audio/wav") לצורך ניתוב לאלגוריתם הנכון.
+     * @param extractTaskCallback אובייקט ה-Callback שדרכו אנו מדווחים ל-UI על הצלחה (והמסר) או כישלון (והשגיאה).
      */
     public void extractMsg(byte[] fileBytes, String mimeType, ExtractTaskCallback extractTaskCallback) 
     {
         System.out.println("Enter ExtractMsg");
 
+        // עטיפת פעולת החילוץ ב-Thread נפרד כדי למנוע חסימה (Blocking) של השרת
         StgnoTask = new Thread(() -> {
             System.out.println("Enter Thread ExtractMsg");
            
-            // ולידציה קשיחה למניעת קריסות (Null Pointer / Unsupported Format) באלגוריתמים
+            // ולידציה קשיחה: מוודאים שסוג הקובץ נתמך במערכת (תמונה או שמע חוקיים).
+            // זה מונע קריסות של Null Pointer או שגיאות של פורמט לא נתמך באלגוריתמים עצמם.
             if(checkValid(mimeType, "image") || checkValid(mimeType, "audio")) 
             {
                 String msg = null;
                 try 
                 {
+                    // קריאה לנתב הפנימי שמפעיל את האלגוריתם הספציפי (PVD, F5 או DSSS)
                     msg = extract(fileBytes, mimeType);
+                    System.out.println("Extracted message: " + msg);
+                    
+                    // נקודת ההצלחה:
+                    // אם הגענו לשורה הזו, האלגוריתם סיים בהצלחה ולא זרק שום שגיאה.
+                    // לכן אנו מדווחים ל-UI שהתהליך עבר בהצלחה (true) ומעבירים לו את המסר שחולץ.
+                    extractTaskCallback.onComplete(true, msg, "");
                 } 
                 catch (Exception e) 
                 {
+                    // נקודת הכישלון:
+                    // אם האלגוריתם גילה שהתמונה פגומה, או שאין מסר, הוא זורק שגיאה.
+                    // אנחנו תופסים אותה כאן, ומעבירים ל-UI דיווח על כישלון (false) יחד עם טקסט השגיאה (e.getMessage()).
                     e.printStackTrace();
+                    extractTaskCallback.onComplete(false, null, e.getMessage());
                 }
-                
-                System.out.println("Extracted message: " + msg);
-                extractTaskCallback.onComplete(true, msg);
             } 
             else 
             {
-                // קריאה ל-Callback עם כשל במקרה של קובץ לא חוקי
-                extractTaskCallback.onComplete(false, null);
+                // קריאה ל-Callback עם כשלון מידי במידה וסוג הקובץ כלל אינו נתמך במערכת
+                extractTaskCallback.onComplete(false, null, "קובץ לא נתמך");
             }
             
         });
 
+        // הפעלת התהליכון (Thread) ברקע
         StgnoTask.start();
         System.out.println("the task extractMsg & Thread is end");
     }
@@ -253,34 +247,19 @@ public class StegnoService
             case "image/jpg":
             case "image/jpeg":
                 System.out.println("f5 jpeg extraction");
-                return extractF5(fileBytes);
+                return f5StegoService.extract(fileBytes);
+
             case "image/png":
                 System.out.println("PVD PNG extraction");
-                return extractPVD(fileBytes);
+                return pvdStegoService.extract(fileBytes);  
+
             case "audio/wav":
                 System.out.println("DSSS WAV extraction");
-                return extractDSSS(fileBytes);
-            default:
-                return null;
+                return dsssStegnoService.extract(fileBytes);
+
+            default: throw new IllegalArgumentException("פורמט הקובץ אינו נתמך");        
         }
     } 
-   
-    private String extractDSSS(byte[] fileBytes) 
-    {
-        return dsssStegnoService.extract(fileBytes);
-    }
-
-    private String extractPVD(byte[] fileBytes) throws Exception 
-    {
-        System.out.println("Sending to PVDStegoService for extraction");
-        return pvdStegoService.extract(fileBytes);    
-    }
-
-    private String extractF5(byte[] fileBytes) 
-    {
-        System.out.println("Sending to F5StegoService for extraction");
-        return f5StegoService.extract(fileBytes);
-    }
 
     // ========================================================================
     // פונקציות עזר (Utilities)

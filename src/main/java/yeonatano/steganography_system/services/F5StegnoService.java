@@ -14,26 +14,36 @@ import java.util.List;
 /**
  * מחלקת שירות (Service) המיישמת את אלגוריתם הסטגנוגרפיה F5 עבור קבצי JPEG.
  * האלגוריתם מבצע הטמעה וחילוץ של מידע סודי אל תוך מקדמי ה-DCT של התמונה
- * תוך שימוש בקידוד מטריצה (Matrix Encoding) כדי למזער את הפגיעה באיכות התמונה.
+ * תוך שימוש בקידוד מטריצה (Matrix Encoding) כדי למזער את הפגיעה באיכות התמונה
+ * ולהתמודד עם תופעת ההתכווצות (Shrinkage).
+ *
+ * סיבוכיות מקום (Space Complexity): O(N)
+ * כאשר N הוא סך כל מקדמי ה-DCT של התמונה. המחלקה טוענת את המקדמים לרשימה (List)
+ * בזיכרון, יחד עם משתני עזר נוספים לאחסון המסר שגודלם תלוי בקיבולת הנדרשת.
  */
 @Service
 public class F5StegnoService 
 {
-
-    // private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
     /**
      * פונקציה להטמעת הודעה סודית בתוך תמונת JPEG.
      * התהליך כולל קריאת מקדמי ה-DCT, המרת ההודעה לביטים (כולל הוספת Header של 32 ביט לאורך המסר),
-     * והטמעתם בעזרת Matrix Encoding על מקדמים שאינם אפס.
+     * והטמעתם בעזרת Matrix Encoding על מקדמים שאינם אפס, תוך טיפול מובנה בהתאפסות מקדמים (Shrinkage).
      *
-     * @param imgFile קובץ התמונה המקורי שהועלה על ידי המשתמש (מתוך ה-Web Buffer).
+     * @param fileBytes קובץ התמונה המקורי שהועלה על ידי המשתמש (מתוך ה-Web Buffer).
      * @param secretMsg ההודעה הסודית שהמשתמש רוצה להסתיר בתמונה.
-     * @return מערך בתים (byte[]) המייצג את התמונה החדשה (Stego-Image) לאחר ההטמעה, או null במקרה של שגיאה או חוסר מקום.
+     * @return מערך בתים (byte[]) המייצג את התמונה החדשה (Stego-Image) לאחר ההטמעה.
+     * @throws IllegalArgumentException במקרה של כישלון בבדיקת Fail-Fast (חוסר מקום או תמונה דחוסה/חלקה מדי).
+     * @throws Exception שגיאות מערכת, קריסה או בעיות בפירוק/הרכבת קובץ ה-JPEG.
+     * * זמן ריצה (Time Complexity) במקרה הגרוע (Worst Case):
+     * O(N)
+     * כאשר N הוא סך מקדמי ה-DCT המרכיבים את התמונה. 
+     * פירוק ה-JPEG למקדמים לוקח זמן ליניארי. לולאת ההטמעה סורקת קדימה את המקדמים 
+     * (תוך חזרות נקודתיות במקרה של דגל Zflag עבור Shrinkage), וחסומה ממעל על ידי גודל התמונה (N).
      */
-    public byte[] embed(byte[] fileBytes, String secretMsg) 
+    public byte[] embed(byte[] fileBytes, String secretMsg) throws Exception 
     {
-        try {
+        try 
+        {
             // התאמה ל-Stream: מקבלים את המידע ישירות מה-Buffer
             InputStream inputStream = new ByteArrayInputStream(fileBytes);
 
@@ -59,16 +69,34 @@ public class F5StegnoService
             System.out.println("Message length: " + messageLength + " bytes");
             System.out.println("Total bits to embed: " + bitsToEmbed.length + " (32 header + " + messageBits.length + " message)");
 
+            // ==========================================
+            // תחילת בדיקת Fail-Fast עם Shrinkage
+            // ==========================================
+            double effectiveCapacity = 0;
 
+            for (int coeff : DCTlist) 
+            {
+                if (coeff != 0) 
+                {
+                    //// אם המקדם הוא 1 או 1-, יש סיכוי של 50% שהוא יתאפס, לכן הוא שווה רק חצי מקום
+                    effectiveCapacity += (Math.abs(coeff) == 1) ? 0.5 : 1.0;
+                }
+            }
+
+            // חישוב בסיסי: כמה מקדמים נצטרך נטו (3 מקדמים לכל 2 ביטים)
+            int requiredCoeffs = (int) Math.ceil(bitsToEmbed.length / 2.0) * 3;
+
+            // בדיקה: האם יש מספיק מקום בטוח להטמעה?
+            if (effectiveCapacity < requiredCoeffs) 
+                throw new IllegalArgumentException("קיבולת התמונה קטנה מדי, נסה תמונה אחרת או מסר קצר יותר ");            
             // 5. לולאת ההטמעה
-            // bitIndex - מונה הביטים שהוטמעו בהצלחה
-            int bitIndex = 0;
+
             int msgIndex = 0;// המיקום במערך המסר
             int imgIndex = 0; //המיקום בטבלת המקדמים
 
-            int[] m = new int[2]; //דגימה של המסר ממערך המסר 
+            int[] IdxInDCT_List; //הדגימות להטמעה ב LSB שלהם
 
-            // int[] B = new int[3]; // מכיל את האינדקסים שאנחנו כרגע עליהם שאינם שווים ל0
+            int[] m = new int[2]; //דגימה של המסר ממערך המסר 
 
             int[] bLsb = new int[3]; // מכיל את הביטים שדגמנו 
 
@@ -81,7 +109,7 @@ public class F5StegnoService
             boolean Zflag = false;
 
 
-            // לולאה על המקדמים בסדר אקראי
+            // לולאה על המקדמים 
             //הלולאה תרוץ כל עוד גודל מערך המסר גדול מהמיקום שאנו מנצאים בו
             while (msgIndex <= bitsToEmbed.length-1)
             {
@@ -93,9 +121,12 @@ public class F5StegnoService
                 
                 else m[1] = 0; // ריפוד במקרה של ביט אחרון בודד
 
-                int[] IdxInDCT_List = new int[3];
+                
+                IdxInDCT_List = new int[3];
                 int validCount = 0;
 
+
+                //בדיקה נוספת לחריגה של מסר גדול מכגי הטמעה בגלל ריבוי אפסים
                 while (validCount < 3 && imgIndex < DCTlist.size()) 
                 {
                     if (DCTlist.get(imgIndex) != 0)
@@ -172,16 +203,9 @@ public class F5StegnoService
                 }
 
                 msgIndex += 2;
-                bitIndex = msgIndex;
             }
 
-            if (bitIndex < bitsToEmbed.length) 
-            {
-                System.out.println("Error: Image capacity too small for this message!");
-                return null;
-            } 
-            else 
-            {
+            
                 decomposer.setAllCoefficients(DCTlist);
                 F5JpegWriter directWriter = new F5JpegWriter(decomposer.getWidth(), decomposer.getHeight(), decomposer.getBlocks());
                 
@@ -190,10 +214,15 @@ public class F5StegnoService
                 directWriter.writeRawDCT(outputStream); 
                 
                 return outputStream.toByteArray();            
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
+            
+        } 
+        catch (IllegalArgumentException e) 
+        {
+            throw e; // שגיאת הלוגיקה שלנו בעברית - עולה ישירות למשתמש
+        }
+        catch (Exception e) 
+        {
+            throw new Exception("שגיאה: " + e.getMessage(), e);
         }
     }
 
@@ -202,13 +231,24 @@ public class F5StegnoService
      * הפונקציה קוראת את מקדמי ה-DCT של התמונה, מחלצת תחילה את אורך המסר (32 ביטים ראשונים),
      * ולאחר מכן מחלצת את תוכן ההודעה בעזרת פעולות XOR על הביטים הפחות משמעותיים (LSB).
      *
-     * @param stegoFile קובץ התמונה המכיל את המידע הסודי (מתוך ה-Web Buffer).
+     * @param fileBytes קובץ התמונה המכיל את המידע הסודי (מתוך ה-Web Buffer).
      * @return מחרוזת המכילה את ההודעה הסודית שחולצה, או הודעת שגיאה במקרה של כשל.
+     * @throws IllegalArgumentException במקרה של חילוץ אורך מסר בלתי הגיוני המעיד על חוסר מסר.
+     * @throws Exception עבור שגיאות בקריאת הקובץ או פירוק ה-JPEG.
+     * * זמן ריצה (Time Complexity) במקרה הגרוע (Worst Case):
+     * O(N)
+     * כאשר N הוא סך מקדמי ה-DCT המרכיבים את התמונה. 
+     * פתיחת התמונה לקריאה מתבצעת בזמן ליניארי ביחס למספר המקדמים. לולאת החילוץ מתקדמת 
+     * במעבר יחיד קדימה (Single Pass) ללא חזרות, עד לחילוץ מלא של המסר או לסיום התמונה, ולכן חסומה ב-O(N).
      */
-    public String extract(byte[] fileBytes) {
-    try {
+    public String extract(byte[] fileBytes) throws Exception 
+    {
+        try 
+        {
         // 1. טעינת התמונה המכילה את המסר (התאמה ל-InputStream של ה-Web)
-        InputStream inputStream = new ByteArrayInputStream(fileBytes);        
+        //בשביל המחלקות עזר של פירוק הערכים
+        InputStream inputStream = new ByteArrayInputStream(fileBytes);    
+
         // 1. פירוק התמונה כדי לקבל את המקדמים (חייבים לעשות את זה ראשון!)
         System.out.println("Analyzing stego image...");
         
@@ -223,6 +263,7 @@ public class F5StegnoService
         // הלולאה עוברת על ה-DCTlist, שולפת 32 ביטים ומכניסה אותם ל-messageLength
         for (int i = 0; i < 16; i++)
         {
+            
             int[] validCoeffs = new int[3];
             int validCount = 0;
 
@@ -264,10 +305,8 @@ public class F5StegnoService
         System.out.println("Detected message length: " + messageLength + " bytes");
 
         // הגנה נוספת ל-Web (למנוע NegativeArraySizeException אם האורך לא תקין)
-        if (messageLength <= 0 || messageLength > DCTlist.size()) {
-            return "No hidden message detected or invalid file.";
-        }
-
+        if (messageLength <= 0 || messageLength > DCTlist.size()) 
+            throw new IllegalArgumentException("לא זוהה מסר חבוי חוקי בתמונה זו, או שהקובץ פגום / ללא מסר");
         // 3. אחרי שלולאת ה-for סיימה ויש לנו אורך אמיתי - עכשיו ניצור את המערך!
         int totalBitsToExtract = messageLength * 8;
         int[] extractedBits = new int[totalBitsToExtract];
@@ -333,9 +372,14 @@ public class F5StegnoService
         
         return hiddenMessage;
 
-    } catch (Exception e) {
-        e.printStackTrace();
-        return "Extraction failed: " + e.getMessage();
+    }
+    catch (IllegalArgumentException e) 
+    {
+        throw e; // מעלה את השגיאה בעברית
+    }
+    catch (Exception e) 
+    {
+        throw new Exception("שגיאת מערכת ב-F5 (חילוץ): " + e.getMessage(), e);
     }
 
     }

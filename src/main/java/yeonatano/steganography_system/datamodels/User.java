@@ -61,9 +61,7 @@ public class User
         this.password = password;
     }
 
-    /**
-     * ייצוג המחלקה כמחרוזת. שימושי לצורך לוגים וניפוי שגיאות (Debugging).
-     */
+   
     @Override
     public String toString() 
     {

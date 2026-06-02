@@ -15,8 +15,11 @@ public class DsssUtils
      * קבוע: מספר הדגימות שעליהן מפוזר כל ביט בודד.
      * ככל שהמספר גדול יותר - ההטמעה עמידה יותר לרעש, אך קיבולת הקובץ קטנה.
      */
-    public static final int SAMPLES_PER_BIT = 100;
-
+    public static String SECRET_SEED = "a1a2a3";
+    public static int SAMPLES_PER_BIT = 100;
+    public static int HEADER_BITS = 16;
+    public static int MIN_SKIP = 1800;
+    public static int MAX_SKIP = 3000;
     // ==========================================
     // פונקציות המרה ועבודה עם ביטים
     // ==========================================
@@ -27,10 +30,10 @@ public class DsssUtils
      */
     public static int[] getHeaderBits(int length)
     {
-        int[] headerBits = new int[16];
-        for (int i = 0; i < 16; i++)
+        int[] headerBits = new int[HEADER_BITS];
+        for (int i = 0; i < HEADER_BITS; i++)
         {
-            headerBits[i] = (length >> (15 - i)) & 1;
+            headerBits[i] = (length >> ((HEADER_BITS-1) - i)) & 1;
         }
         return headerBits;
     }
